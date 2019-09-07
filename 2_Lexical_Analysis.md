@@ -30,10 +30,11 @@ of tokens that it recognises (from [src/defs.h](src/defs.h)):
 | ASXOR | \^ | ELSE | else | STRLIT | *"string"* | | |
 | ASLSHIFT | =<< | ENUM | enum | STRUCT | struct | | |
 
-The first column and a third contain the operators in C such as `+=`, `>>`
-etc. Then, in columns two and three you can see the keywords such as
+The first Token column and some of the second Token column contain
+the operators in C such as `+=`, `>>`
+etc. Then, in Token columns two and three you can see the keywords such as
 `continue`, `if`, `while` etc. There are also the structural tokens such
-as parentheses, square brackets and curly braces. Finally, in the last
+as parentheses, square brackets and curly braces. Finally, in the last Token
 column, you can see the C pre-processor directives such as `#include` and
 `#ifdef`.
 
