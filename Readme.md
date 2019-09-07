@@ -22,8 +22,8 @@ lot of effort into SubC and he deserves some recompense.
 
 The topics that I will cover are:
 
- + The Basic Operation of a Compiler
- + Lexical Analysis
+ + [The Basic Operation of a Compiler](1_Basic_Operation.md)
+ + [Lexical Analysis]( 2_Lexical_Analysis.md)
  + The Preprocessor
  + Parsing of Statements
  + The Symbol Table
