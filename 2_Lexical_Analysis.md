@@ -5,30 +5,30 @@
 We start our tour through the lexical analyser in SubC with the list
 of tokens that it recognises (from [src/defs.h](src/defs.h)):
 
-| Token | Input || Token | Input || Token | Input || Token | Input |
-|:-----:|:------:||:-----:|:-----:||:-----:|:-----:||:-----:|:-----:|
-| SLASH | / || ASMINUS | =- || EXTERN | extern || SWITCH | switch |
-| STAR | * || ASMOD | =% || FOR | for || TILDE | ~ |
-| MOD | % || ASOR | =\| || IDENT | *&lt;identifier&gt;* || UNION | union |
-| PLUS | + || ASPLUS | =+ || IF | if || VOID | void |
-| MINUS | - || ASRSHIFT | =>> || INCR | ++ || VOLATILE | volatile |
-| LSHIFT | << || ASDIV | =/ || INT | int || WHILE | while |
-| RSHIFT | >> || ASMUL | =* || INTLIT | *&lt;number&gt;* || XEOF | end of file |
-| GREATER | > || ASSIGN | = || LBRACE | { || XMARK | ! |
-| GTEQ | >= || AUTO | auto || LBRACK | [ || P_DEFINE | #define |
-| LESS | < || BREAK | break || LPAREN | ( || P_ELSE | #else |
-| LTEQ | <= || CASE | case || NOT | *unused* || P_ELSENOT | *internal* |
-| EQUAL | == || CHAR | char || QMARK | ? || P_ENDIF | #endif |
-| NOTEQ | != || COLON | : || RBRACE | } || P_ERROR | #error |
-| AMPER | & || COMMA | , || RBRACK | ] || P_IFDEF | #ifdef |
-| CARET | ^ || CONTINUE | continue || REGISTER | register || P_IFNDEF | #ifndef |
-| PIPE | \| || DECR | -- || RETURN | return || P_INCLUDE | #include |
-| LOGAND | && || DEFAULT | default || RPAREN | ) || P_LINE | #line |
-| LOGOR | \|\|| | DO | do || SEMI | ; || P_PRAGMA | #pragma |
-| ARROW | -> || DOT | . || SIZEOF | sizeof || P_UNDEF | #undef |
-| ASAND | =& || ELLIPSIS | ... || STATIC | static || | |
-| ASXOR | \^ || ELSE | else || STRLIT | *"string"* || | |
-| ASLSHIFT | =<< || ENUM | enum || STRUCT | struct || | |
+| Token | Input | Token | Input | Token | Input | Token | Input |
+|:-----:|:------:|:-----:|:-----:|:-----:|:-----:|:-----:|:-----:|
+| SLASH | / | ASMINUS | =- | EXTERN | extern | SWITCH | switch |
+| STAR | * | ASMOD | =% | FOR | for | TILDE | ~ |
+| MOD | % | ASOR | =\| | IDENT | *&lt;identifier&gt;* | UNION | union |
+| PLUS | + | ASPLUS | =+ | IF | if | VOID | void |
+| MINUS | - | ASRSHIFT | =>> | INCR | ++ | VOLATILE | volatile |
+| LSHIFT | << | ASDIV | =/ | INT | int | WHILE | while |
+| RSHIFT | >> | ASMUL | =* | INTLIT | *&lt;number&gt;* | XEOF | end of file |
+| GREATER | > | ASSIGN | = | LBRACE | { | XMARK | ! |
+| GTEQ | >= | AUTO | auto | LBRACK | [ | P_DEFINE | #define |
+| LESS | < | BREAK | break | LPAREN | ( | P_ELSE | #else |
+| LTEQ | <= | CASE | case | NOT | *unused* | P_ELSENOT | *internal* |
+| EQUAL | == | CHAR | char | QMARK | ? | P_ENDIF | #endif |
+| NOTEQ | != | COLON | : | RBRACE | } | P_ERROR | #error |
+| AMPER | & | COMMA | , | RBRACK | ] | P_IFDEF | #ifdef |
+| CARET | ^ | CONTINUE | continue | REGISTER | register | P_IFNDEF | #ifndef |
+| PIPE | \| | DECR | -- | RETURN | return | P_INCLUDE | #include |
+| LOGAND | && | DEFAULT | default | RPAREN | ) | P_LINE | #line |
+| LOGOR | \|\| | DO | do | SEMI | ; | P_PRAGMA | #pragma |
+| ARROW | -> | DOT | . | SIZEOF | sizeof | P_UNDEF | #undef |
+| ASAND | =& | ELLIPSIS | ... | STATIC | static | | |
+| ASXOR | \^ | ELSE | else | STRLIT | *"string"* | | |
+| ASLSHIFT | =<< | ENUM | enum | STRUCT | struct | | |
 
 The first column and a third contain the operators in C such as `+=`, `>>`
 etc. Then, in columns two and three you can see the keywords such as
