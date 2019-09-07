@@ -9,7 +9,8 @@ This is my own personal tour through the
 written by Nils M Holm. I've done this to help me grok a compiler that
 is small but which is complete enough to be able to recompile itself.
 
-I've added a lot of comments to the original compiler code, and I've
+I've added a lot of comments to the original compiler code,
+[subc-20161212.tgz](http://www.t3x.org/subc/subc-20161212.tgz), and I've
 written the descriptions of the stages below.
 
 I haven't really covered much of the compiler theory behind the operation
@@ -24,7 +25,7 @@ The topics that I will cover are:
 
  + [The Basic Operation of a Compiler](1_Basic_Operation.md)
  + [Lexical Analysis]( 2_Lexical_Analysis.md)
- + The Preprocessor
+ + [The C Preprocessor](3_Preprocessor.md)
  + Parsing of Statements
  + The Symbol Table
  + Parsing of Declarations
