@@ -7,25 +7,25 @@ of tokens that it recognises (from [src/defs.h](src/defs.h)):
 
 | Token | Input || Token | Input || Token | Input || Token | Input |
 |:-----:|:------:||:-----:|:-----:||:-----:|:-----:||:-----:|:-----:|
-| SLASH | / || ASMINUS | =- || EXTERN | extern || SWITCH | switch | 
-| STAR | * || ASMOD | =% || FOR | for || TILDE | ~ | 
-| MOD | % || ASOR | =\| || IDENT | *&lt;identifier&gt;* || UNION | union | 
-| PLUS | + || ASPLUS | =+ || IF | if || VOID | void | 
-| MINUS | - || ASRSHIFT | =>> || INCR | ++ || VOLATILE | volatile | 
-| LSHIFT | << || ASDIV | =/ || INT | int || WHILE | while | 
-| RSHIFT | >> || ASMUL | =* || INTLIT | *&lt;number&gt;* || XEOF | end of file | 
-| GREATER | > || ASSIGN | = || LBRACE | { || XMARK | ! | 
-| GTEQ | >= || AUTO | auto || LBRACK | [ || P_DEFINE | #define | 
-| LESS | < || BREAK | break || LPAREN | ( || P_ELSE | #else | 
-| LTEQ | <= || CASE | case || NOT | *unused* || P_ELSENOT | *internal* | 
-| EQUAL | == || CHAR | char || QMARK | ? || P_ENDIF | #endif | 
-| NOTEQ | != || COLON | : || RBRACE | } || P_ERROR | #error | 
-| AMPER | & || COMMA | , || RBRACK | ] || P_IFDEF | #ifdef | 
-| CARET | ^ || CONTINUE | continue || REGISTER | register || P_IFNDEF | #ifndef | 
-| PIPE | \| || DECR | -- || RETURN | return || P_INCLUDE | #include | 
-| LOGAND | && || DEFAULT | default || RPAREN | ) || P_LINE | #line | 
-| LOGOR | \|\|| | DO | do || SEMI | ; || P_PRAGMA | #pragma | 
-| ARROW | -> || DOT | . || SIZEOF | sizeof || P_UNDEF | #undef | 
+| SLASH | / || ASMINUS | =- || EXTERN | extern || SWITCH | switch |
+| STAR | * || ASMOD | =% || FOR | for || TILDE | ~ |
+| MOD | % || ASOR | =\| || IDENT | *&lt;identifier&gt;* || UNION | union |
+| PLUS | + || ASPLUS | =+ || IF | if || VOID | void |
+| MINUS | - || ASRSHIFT | =>> || INCR | ++ || VOLATILE | volatile |
+| LSHIFT | << || ASDIV | =/ || INT | int || WHILE | while |
+| RSHIFT | >> || ASMUL | =* || INTLIT | *&lt;number&gt;* || XEOF | end of file |
+| GREATER | > || ASSIGN | = || LBRACE | { || XMARK | ! |
+| GTEQ | >= || AUTO | auto || LBRACK | [ || P_DEFINE | #define |
+| LESS | < || BREAK | break || LPAREN | ( || P_ELSE | #else |
+| LTEQ | <= || CASE | case || NOT | *unused* || P_ELSENOT | *internal* |
+| EQUAL | == || CHAR | char || QMARK | ? || P_ENDIF | #endif |
+| NOTEQ | != || COLON | : || RBRACE | } || P_ERROR | #error |
+| AMPER | & || COMMA | , || RBRACK | ] || P_IFDEF | #ifdef |
+| CARET | ^ || CONTINUE | continue || REGISTER | register || P_IFNDEF | #ifndef |
+| PIPE | \| || DECR | -- || RETURN | return || P_INCLUDE | #include |
+| LOGAND | && || DEFAULT | default || RPAREN | ) || P_LINE | #line |
+| LOGOR | \|\|| | DO | do || SEMI | ; || P_PRAGMA | #pragma |
+| ARROW | -> || DOT | . || SIZEOF | sizeof || P_UNDEF | #undef |
 | ASAND | =& || ELLIPSIS | ... || STATIC | static || | |
 | ASXOR | \^ || ELSE | else || STRLIT | *"string"* || | |
 | ASLSHIFT | =<< || ENUM | enum || STRUCT | struct || | |
@@ -217,7 +217,7 @@ static int keyword(char *s) {
 
 ## More Complex Tokens: Character Literals
 
-SubC recognises lexical elements such as `'a'` and `'x'` by 
+SubC recognises lexical elements such as `'a'` and `'x'` by
 returning an INTLIT (literal integer) token with the character's
 ASCII value. The `Value` global variable holds the value of INTLIT tokens.
 The `Text` variable gets a copy of the characters from the input which
@@ -392,7 +392,7 @@ not needed. For example, we have seen '&' which could be followed by another
 beginning of an identifier. We need to put the 'a' back into the input stream.
 
 So, too, there are times when an entire token has to be pushed back into
-the stream. This occurs when we are handling expression in 
+the stream. This occurs when we are handling expression in
 [src/expr.c](src/expr.c). I'll cover this situation when I cover the
 [src/expr.c](src/expr.c) file. However, here's the code to do it.
 
