@@ -436,7 +436,7 @@ with C pre-processor directives. I will cover that in the next section:
 
 The code in [src/scan.c](src/scan.c) has the job of recognising the
 lexical elements from the input files, and to return a stream of
-tokens. `scanpp() is the code which does this task. Not only does
+tokens. `scanpp()` is the code which does this task. Not only does
 it return a token value, it also sets the `Text[]` character array
 with the text of some tokens (e.g. strings, identifiers), and it also
 sets the `Value` variable with the value of some tokens (e.g. integer
