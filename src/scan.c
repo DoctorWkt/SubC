@@ -648,8 +648,8 @@ void reject(void) {
 }
 
 // Code added by Warren Toomey
-// List of token
 
+// List of tokens
 char *tokname[P_UNDEF+1];
 
 
