@@ -128,21 +128,28 @@ node *mkbinop2(int op, int n1, int n2, node *left, node *right) {
 // of the AST.
 
 static void dumpleaf(char *s, node *a) {
-	if (a->op == OP_LIT)
-		printf("%s %d\n", s, a->args[0]);
-	else
-		printf("%s %s\n", s, Names[ a->args[0] ]);
+	switch (a->op) {
+		OP_LIT:  printf("%s %d\n", s, a->args[0]); break;
+		default: printf("%s %s\n", s, Names[ a->args[0] ]);
+	}
 }
 
 static void dumpunop1(char *s, node *a) {
-	printf("%s %d\n", s, a->args[0]);
+	switch (a->op) {
+		OP_LDLAB: printf("%s L%d\n", s, a->args[0]); break;
+		default:  printf("%s %d\n", s, a->args[0]);
+	}
 	Level++;
 	dumptree(a->left);
 	Level--;
 }
 
 static void dumpunop2(char *s, node *a) {
-	printf("%s %d %d\n", s, a->args[0], a->args[1]);
+	switch (a->op) {
+		case OP_RVAL: printf(" %s %d %s\n", s, a->args[0], Names[a->args[1]]); break;
+		case OP_CALL: printf(" %s() %d\n", Names[a->args[0]], a->args[1]); break;
+		default:      printf("%s %d %d\n", s, a->args[0], a->args[1]);
+	}
 	Level++;
 	dumptree(a->left);
 	Level--;
@@ -410,8 +417,11 @@ static void emittree1(node *a) {
 }
 
 void emittree(node *a) {
-	if (O_dumptree)
+	if (O_dumptree) {
+		puts("Tree\n----");
 		dumptree(a);
+		puts("");
+	}
 	a = optimize(a);
 	emittree1(a);
 }
