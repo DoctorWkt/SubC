@@ -29,17 +29,18 @@ code. Some of this can be done directly; some of this is done by constructing
 [abstract syntax trees](https://en.wikipedia.org/wiki/Abstract_syntax_tree)
 (ASTs) which are then optimised and flattened by the generic code generator.
 
+## Recursive Descent and BNF Notation
+
+XXX add stuff here.
+
+## Statement Parsing; Where and How to Start?
+
 We will start our tour of the SubC parser with statement parsing. The
 top-level statement parsing function is `stmt()` which is in
-[src/stmt.c](src/stmt.c).
+[src/stmt.c](src/stmt.c). The first thing we need to determine is
+how we get to the point where the code in `stmt()` is running.
 
-
-## How Does SubC Get to `stmt()`?
-
-Before we look at statement parsing, we need to see how we get to
-the point where the code in `stmt()` is running.
-
-The SubC compiler starts in `main()` (in [src/main.c](src/main.c)
+The SubC compiler starts in `main()` (in [src/main.c](src/main.c))
 which interprets the flags and file arguments on the command line.
 
 Every non-flag argument is passed to the `compile()` function:
@@ -54,7 +55,7 @@ Every non-flag argument is passed to the `compile()` function:
 ```
 
 After opening the correct files, `compile()`
-(also in [src/main.c](src/main.c) then passes control to `program()`:
+(also in [src/main.c](src/main.c)) then passes control to `program()`:
 
 ```
 static void compile(char *file, char *def) {
@@ -62,7 +63,7 @@ static void compile(char *file, char *def) {
         program(file, in, out, def);
 ```
 
-`program()` (in [src/decl.c](src/decl.c) generates the assembly prelude
+`program()` (in [src/decl.c](src/decl.c)) generates the assembly prelude
 code, scans the first token and calls the `top()` function:
 
 ```
@@ -85,12 +86,12 @@ void program(char *name, FILE *in, FILE *out, char *def) {
 }
 ```
 
-The `top()` function (also in [src/decl.c](src/decl.c) parses the various
+The `top()` function (also in [src/decl.c](src/decl.c)) parses the various
 declarations that can occur at the top of a C program. Eventually it
 finds a function declaration followed by a compound statement, i.e.
 a pair of '{' ... '}' with zero or more statements inside.
 
-`compound()` (in [src/stmt.c](src/stmt.c) gets the token after '{'
+`compound()` (in [src/stmt.c](src/stmt.c)) gets the token after '{'
 and repetetively calls `stmt()` until we hit the closing '}':
 
 ```
