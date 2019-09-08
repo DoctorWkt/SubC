@@ -362,7 +362,7 @@ and any `continue` inside the loop will be translated into an immediate jump to 
 `continue_label`. The loop's expression is evaluated at the bottom and jumps to the
 `start_label` if true.
 
-With that explained, we can return to the analysis of the `do_stmt() code, but with one
+With that explained, we can return to the analysis of the `do_stmt()` code, but with one
 more sidetrack. C allows loops inside loops, so there can be nested labels, e.g.
 
 ```
