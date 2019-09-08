@@ -26,7 +26,7 @@ The topics that I will cover are:
  + [The Basic Operation of a Compiler](1_Basic_Operation.md)
  + [Lexical Analysis]( 2_Lexical_Analysis.md)
  + [The C Pre-processor](3_Preprocessor.md)
- + Parsing of Statements
+ + [Parsing of Statements](4_Statement_Parsing.md)
  + The Symbol Table
  + Parsing of Declarations
  + Parsing of Expressions
