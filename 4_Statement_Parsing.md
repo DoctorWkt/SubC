@@ -323,7 +323,7 @@ static void do_stmt(void) {
 ```
 
 You should be able to spot the code that reads and checks the tokens: `scan()`,
-`match(), `lparen()`, `rparen()`, `semi()`. You should also be able to spot the
+`match()`, `lparen()`, `rparen()`, `semi()`. You should also be able to spot the
 calls to the functions that deal with the non-terminals: `stmt()` and `rexpr()`.
 So now let's look at the rest of the code.
 
@@ -378,7 +378,7 @@ more sidetrack. C allows loops inside loops, so there can be nested labels, e.g.
 We thus need a stack to hold the `break` and `continue` labels for our loops, so that
 any specific `break` command can be translated to the correct label for its loop.
 
-Returning to the `do_stmt() code, we can see that three assembly labels are generated:
+Returning to the `do_stmt()` code, we can see that three assembly labels are generated:
 `ls`, `lb` and `lc` for the `start_label`, `break_label` and `continue_label`. Two of
 them are pushed onto stacks.
 
