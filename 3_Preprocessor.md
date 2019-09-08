@@ -604,3 +604,47 @@ of the macros and any macro definition. We need to prevent macro expansion
 when this occurs, so the pre-processor calls `scanraw()` to make this happen.
 
 We can now move on to the syntax parsing phase of the SubC compiler.
+
+## Seeing the Token Stream
+
+I've added some code to SubC so that the stream of tokens output by
+`scanpp()` can be seen. Go into the `src` directory and do a `make`
+to build the `scc0` compiler.
+
+Now you can use the run-time flag `-k` to get `scc0` to output the
+token stream as it is compiling. For example, to get the compiler to
+compile itself:
+
+```
+$ ./scc0 -k -o scc1 cg.c decl.c error.c expr.c gen.c main.c misc.c opt.c prep.c scan.c stmt.c sym.c tree.c
+#include
+#include
+#define
+IDENT EXIT_FAILURE
+#define
+IDENT EXIT_SUCCESS
+#define
+IDENT RAND_MAX
+extern
+char
+*
+*
+IDENT environ
+;
+void
+IDENT abort
+(
+void
+)
+;
+int
+IDENT abs
+(
+int
+IDENT n
+)
+;
+
+etc.
+```
+

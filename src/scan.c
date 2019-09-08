@@ -7,6 +7,8 @@
 #include "data.h"
 #include "decl.h"
 
+void print_token(int t);
+
 // Get the next character from the input file.
 int next(void) {
 	int	c;
@@ -608,9 +610,16 @@ int scan(void) {
 				// as we never saw the matching #endif
 		if (!Inclev && Isp && XEOF == t)
 			fatal("missing '#endif'");
+		// Code added by Warren Toomey
+		if (O_showtokens && frozen(1)) {
+			fputs("frozen ", stdout);
+			print_token(t);
+		}
 	} while (frozen(1));
 	if (t == Syntoken)
 		Syntoken = 0;
+	if (O_showtokens)
+		print_token(t);
 	return t;
 }
 
@@ -636,4 +645,110 @@ void reject(void) {
 	Rejected = Token;
 	Rejval = Value;
 	strcpy(Rejtext, Text);
+}
+
+// Code added by Warren Toomey
+// List of token
+
+char *tokname[P_UNDEF+1];
+
+
+// Print out the most recent token
+void print_token(int t)
+{
+    int i=0;
+    if (tokname[0]== NULL) {
+	tokname[i++]= "/";
+	tokname[i++]= "*";
+	tokname[i++]= "%";
+	tokname[i++]= "+";
+	tokname[i++]= "-";
+	tokname[i++]= "<<";
+	tokname[i++]= ">>";
+	tokname[i++]= ">";
+	tokname[i++]= ">=";
+	tokname[i++]= "<";
+	tokname[i++]= "<=";
+	tokname[i++]= "==";
+	tokname[i++]= "!=";
+	tokname[i++]= "&";
+	tokname[i++]= "^";
+	tokname[i++]= "|";
+	tokname[i++]= "&&";
+	tokname[i++]= "||";
+	tokname[i++]= "->";
+	tokname[i++]= "&=";
+	tokname[i++]= "^=";
+	tokname[i++]= "<<=";
+	tokname[i++]= "-=";
+	tokname[i++]= "%=";
+	tokname[i++]= "|=";
+	tokname[i++]= "+=";
+	tokname[i++]= ">>=";
+	tokname[i++]= "/=";
+	tokname[i++]= "*=";
+	tokname[i++]= "=";
+	tokname[i++]= "auto";
+	tokname[i++]= "break";
+	tokname[i++]= "case";
+	tokname[i++]= "char";
+	tokname[i++]= ":";
+	tokname[i++]= ";",
+	tokname[i++]= "continue";
+	tokname[i++]= "--";
+	tokname[i++]= "default";
+	tokname[i++]= "do";
+	tokname[i++]= ".";
+	tokname[i++]= "...";
+	tokname[i++]= "else";
+	tokname[i++]= "enum";
+	tokname[i++]= "extern";
+	tokname[i++]= "for";
+	tokname[i++]= "IDENT";
+	tokname[i++]= "if";
+	tokname[i++]= "++";
+	tokname[i++]= "int";
+	tokname[i++]= "INTLIT";
+	tokname[i++]= "{";
+	tokname[i++]= "[";
+	tokname[i++]= "(";
+	tokname[i++]= "!";
+	tokname[i++]= "?";
+	tokname[i++]= "}";
+	tokname[i++]= "]";
+	tokname[i++]= "register";
+	tokname[i++]= "return";
+	tokname[i++]= ")";
+	tokname[i++]= ";";
+	tokname[i++]= "sizeof";
+	tokname[i++]= "static";
+	tokname[i++]= "STRLIT";
+	tokname[i++]= "struct";
+	tokname[i++]= "switch";
+	tokname[i++]= "~";
+	tokname[i++]= "union";
+	tokname[i++]= "void";
+	tokname[i++]= "volatile";
+	tokname[i++]= "while";
+	tokname[i++]= "XEOF";
+	tokname[i++]= "!";
+	tokname[i++]= "#define";
+	tokname[i++]= "#else";
+	tokname[i++]= "ELSENOT";
+	tokname[i++]= "#endif";
+	tokname[i++]= "#error";
+	tokname[i++]= "#ifdef";
+	tokname[i++]= "#ifndef";
+	tokname[i++]= "#include";
+	tokname[i++]= "#line";
+	tokname[i++]= "#pragma";
+	tokname[i++]= "#undef";
+    }
+
+    switch(t) {
+	case STRLIT:
+	case IDENT:  printf("%s %s\n", tokname[t], Text); break;
+	case INTLIT: printf("%s %d\n", tokname[t], Value); break;
+	default:     puts(tokname[t]);
+    }
 }

@@ -182,7 +182,7 @@ static void link(void) {
 }
 
 static void usage(void) {
-	printf("Usage: scc [-h] [-ctvNSTV] [-d opt] [-o file] [-D macro[=text]]"
+	printf("Usage: scc [-h] [-ctvkNSTV] [-d opt] [-o file] [-D macro[=text]]"
 		" file [...]\n");
 }
 
@@ -192,12 +192,14 @@ static void longusage(void) {
 	printf(	"\n"
 		"-c       compile only, do not link\n"
 		"-d opt   activate debug option OPT, ? = list\n"
+		"-k       show the token stream\n"
 		"-o file  write linker output to FILE\n"
 		"-t       test only, generate no code\n"
 		"-v       verbose, more v's = more verbose\n"
 		"-D m=v   define macro M with optional value V\n"
 		"-N       do not use stdio (can't use printf, etc)\n"
 		"-S       compile to assembly language\n"
+		"-T       dump the internal ASTs\n"
 		"-V       print version and exit\n"
 		"\n" );
 }
@@ -245,6 +247,7 @@ int main(int argc, char *argv[]) {
 	O_asmonly = 0;
 	O_testonly = 0;
 	O_dumptree = 0;
+	O_showtokens= 0;
 	O_stdio = 1;
 	O_outfile = NULL;
 	for (i=1; i<argc; i++) {
@@ -265,6 +268,9 @@ int main(int argc, char *argv[]) {
 			case 'h':
 				longusage();
 				exit(EXIT_SUCCESS);
+			case 'k':
+				O_showtokens = 1;
+				break;
 			case 'o':
 				O_outfile = nextarg(argc, argv, &i, &j);
 				break;

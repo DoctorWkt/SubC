@@ -81,3 +81,4 @@ extern_ int	O_stdio;
 extern_ char	*O_outfile;
 extern_ int	O_debug;
 extern_ int	O_dumptree;
+extern_ int	O_showtokens;

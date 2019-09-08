@@ -442,3 +442,47 @@ it return a token value, it also sets the `Text[]` character array
 with the text of some tokens (e.g. strings, identifiers), and it also
 sets the `Value` variable with the value of some tokens (e.g. integer
 literals).
+
+## Seeing the Token Stream
+
+I've added some code to SubC so that the stream of tokens output by
+`scanpp()` can be seen. Go into the `src` directory and do a `make`
+to build the `scc0` compiler.
+
+Now you can use the run-time flag `-k` to get `scc0` to output the
+token stream as it is compiling. For example, to get the compiler to
+compile itself:
+
+```
+$ ./scc0 -k -o scc1 cg.c decl.c error.c expr.c gen.c main.c misc.c opt.c prep.c scan.c stmt.c sym.c tree.c
+#include
+#include
+#define
+IDENT EXIT_FAILURE
+#define
+IDENT EXIT_SUCCESS
+#define
+IDENT RAND_MAX
+extern
+char
+*
+*
+IDENT environ
+;
+void
+IDENT abort
+(
+void
+)
+;
+int
+IDENT abs
+(
+int
+IDENT n
+)
+;
+
+etc.
+```
+
