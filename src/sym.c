@@ -322,7 +322,7 @@ int addglob(char *name, int prim, int type, int scls, int size, int val,
 				name);
 	}
 
-	// If this is a public of static declaration, generate
+	// If this is a public or static declaration, generate
 	// the storage in the assembly output now
 	if (CPUBLIC == scls || CSTATIC == scls)
 		defglob(name, prim, type, size, val, scls, init);
