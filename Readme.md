@@ -27,7 +27,7 @@ The topics that I will cover are:
  + [Lexical Analysis]( 2_Lexical_Analysis.md)
  + [The C Pre-processor](3_Preprocessor.md)
  + [Parsing of Statements](4_Statement_Parsing.md)
- + The Symbol Table
+ + [The Symbol Table](5_Symbol_Table.md)
  + Parsing of Declarations
  + Parsing of Expressions
  + Use of Abstract Symbol Trees
