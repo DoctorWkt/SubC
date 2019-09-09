@@ -400,3 +400,432 @@ the accumulator. The `genbrtrue()` call generated the code that used this value,
 it left the accumulator "occupied". So, the call to `clear()` marks that the accumulator
 is free again for other assembly code to use it.
 
+## `while_stmt()`: While Loops
+
+The BNF rule for While loops is:
+
+```
+   while_stmt := WHILE ( expr ) stmt
+```
+
+It's very similar to the Do ... While loop except the loop condition is tested
+at the top of the loop, not at the end. So the `while_stmt()` function's code
+is very similar to the `do_stmt()` code:
+
+```
+static void while_stmt(void) {
+        int     lb, lc;
+
+        Token = scan();                 // Skip the 'while' token
+        pushbrk(lb = label());          // Get labels for breaks and continues
+        pushcont(lc = label());         // & push them on the respective stack
+        genlab(lc);                     // Generate the continue label
+        lparen();                       // Get the '(' token
+        rexpr();                        // Parse the expression
+        genbrfalse(lb);                 // Generate branch if false to end of loop
+        clear(1);                       // Primary register is now empty
+        rparen();                       // Get the ')' token
+        stmt();                         // Parse the inner statement
+        genjump(lc);                    // Generate jump back to top of loop
+        genlab(lb);                     // Generate the end of loop label
+        Bsp--;                          // And pop the break and continue
+        Csp--;                          // labels from their stacks
+}
+```
+
+## Implementing `break` and `continue`
+
+Given that we already have a stack of labels for the relevant jump points
+for both `break` and `continue`, these are easy to implement.
+
+```
+/*
+ * break_stmt := BREAK ;
+ */
+
+static void break_stmt(void) {
+        // Read the break
+        // Error check if nothing on the break stack
+        // Generate a jump to the location on top of the break stack
+        // and skip past the semicolon
+        Token = scan();
+        if (!Bsp) error("'break' not in loop/switch context", NULL);
+        genjump(Breakstk[Bsp-1]);
+        semi();
+}
+
+/*
+ * continue_stmt := CONTINUE ;
+ */
+
+static void continue_stmt(void) {
+        // Read the break
+        // Error check if nothing on the continue stack
+        // Generate a jump to the location on top of the continue stack
+        // and skip past the semicolon
+        Token = scan();
+        if (!Csp) error("'continue' not in loop context", NULL);
+        genjump(Contstk[Csp-1]);
+        semi();
+}
+```
+
+## `for_stmt()`: Implementing For Loops
+
+```
+   for_stmt :=
+        FOR ( opt_expr ; opt_expr ; opt_expr ) stmt
+  
+   opt_expr :=
+        | expr
+```
+
+For loops in C are interesting for two reasons:
+
+ + The three clauses inside the loop parentheses are each optional.
+ + The generated code isn't actually sequential.
+
+Let me explain the second point by rewriting a For loop as if it was a
+While loop:
+
+```
+   for_stmt :=
+        FOR ( opt_expr1 ; opt_expr2 ; opt_expr3 ) stmt
+
+   opt_expr1;
+   while ( opt_expr2 is true ) {
+      stmt;
+      opt_expr3;
+   }
+```
+
+As you can see, the code for `opt_expr3` comes after `stmt` even though we will
+parse `opt_expr3` comes before `stmt`. We're going to have to deal with this
+somehow.
+
+One strategy is to generate and "stash" the `opt_expr3` code. Then generate all
+the other code. Then "unstash" the `opt_expr3` code and generate it. We would end
+up with this assembly structure:
+
+```
+	opt_expr1 code
+    continue_label:
+	test the loop expression
+	jump to the break_label if the test is true
+	stmt code
+	opt_expr3 code
+	jump to the continue_label
+    break_label:
+```
+
+SubC takes a different strategy which doesn't require the "stashing" of any
+assembly ouput. But this forces the `opt_expr3` code to be generated before
+the `stmt` code. So how do we get them to execute in the correct sequence
+if they are generated out of order? The answer is to use two more labels and
+some jumps:
+
+```
+	opt_expr1 code
+    continue_label:
+	test the loop expression
+	jump to the break_label if the test is true
+	jump to the body_label
+expr3_label:
+	opt_expr3 code
+	jump to the continue_label
+body_label:
+	stmt code
+	jump to the expr3_label
+    break_label:
+```
+
+Yes it's ugly and inefficient, but it works!. So you should now be able to see how the
+C code in `for_stmt()` implements the above structure:
+
+```
+static void for_stmt(void) {
+        int     ls, lbody, lb, lc;
+
+        Token = scan();                 // Skip the 'for' token
+        ls = label();                   // Get a label for the top of loop
+        lbody = label();                // and for the start of the inner statement
+        pushbrk(lb = label());          // Get labels for breaks and continues
+        pushcont(lc = label());         // & push them on the respective stack
+        lparen();                       // Get the '(' token
+        if (Token != SEMI) {            // Parse any first expression
+                rexpr();
+                clear(1);               // Primary register is now empty
+        }
+        semi();                         // Get the ';' token
+        genlab(ls);                     // Generate the top label
+        if (Token != SEMI) {            // Parse any second expression
+                rexpr();
+                genbrfalse(lb);         // Generate branch if false to break label
+                clear(1);               // Primary register is now empty
+        }
+        genjump(lbody);
+        semi();                         // Get the ';' token
+        genlab(lc);                     // Generate the continue label
+        if (Token != RPAREN)
+                rexpr();
+        clear(1);                       // Primary register is now empty
+        genjump(ls);                    // Generate jump to start of middle expression
+        rparen();                       // Get the ')' token
+        genlab(lbody);                  // Generate label for start of inner statement
+        stmt();                         // Parse the inner statement
+        genjump(lc);                    // Generate jump back to third expression code
+        genlab(lb);                     // Generate the break label
+        Bsp--;                          // And pop the break and continue
+        Csp--;                          // labels from their stacks
+}
+```
+
+## `if_stmt()`: Implementing If Statements
+
+The BNF rule for If statements is:
+
+```
+   if_stmt :=
+          IF ( expr ) stmt
+        | IF ( expr ) stmt ELSE stmt
+```
+
+which means that the `else` clause is optional. This means that we have to translate
+this into two different assembly outputs. The first alternative is:
+
+```
+	test the expression
+	jump to the l1_label if the test is false
+	stmt code					// Code when expr is true
+l1_label:
+```
+
+The second alternative is:
+
+```
+	test the expression
+	jump to the l1_label if the test is false
+	stmt code					// Code when expr is true
+	always jump to the l2_label
+l1_label:
+	stmt code					// Code when expr is false
+l2_label:
+```
+
+This means that we have to generate the `l1_label` at the end for one alternative,
+but generate the `l2_label` at the end for the second alternative. See if you can
+spot how this is done in the following C code:
+
+```
+static void if_stmt(void) {
+        int     l1, l2;
+
+        Token = scan();                 // Skip the 'if' token
+        lparen();                       // Get the '(' token
+        rexpr();                        // Parse the expression
+        l1 = label();                   // Get the label for non-true code
+        genbrfalse(l1);                 // Generate branch if false to this label
+        clear(1);                       // Primary register is now empty
+        rparen();                       // Get the ')' token
+        stmt();                         // Parse the statement
+        if (ELSE == Token) {            // If we have an 'else' token
+                l2 = label();           // Get a second label. Swap l1/l2 so the
+                genjump(l2);            // new label is the non-false code. Generate
+                genlab(l1);             // the jump to the end (l2) code. Generate
+                l1 = l2;                // the false code (l1 label). 
+                Token = scan();         // Skip the 'else' token and
+                stmt();                 // Parse the inner statement
+        }
+        genlab(l1);                     // Generate the label for non-true code
+}
+```
+
+## `switch_stmt()` and `switch_block()`: Implementing Switch Statements
+
+SubC gives the BNF rules for Switch statements as follows:
+
+```
+   switch_stmt :=
+          SWITCH ( expr ) { switch_block }
+  
+   switch_block :=
+          switch_block_stmt
+        | switch_block_stmt switch_block
+  
+   switch_block_stmt :=
+          CASE constexpr :
+        | DEFAULT :
+        | stmt
+```
+
+The `switch_block` has to contain at least one `switch_block_stmt`. However, notice that
+a `switch_block_stmt` could be just a single `stmt`. This means that the BNF grammar
+permits the following code:
+
+```
+    switch (x) {
+	printf("Hello\n");
+    }
+```
+
+Obviously we don't want to permit this, so we'll have to implement *semantic analysis* to
+prevent a programmer from doing this.
+
+SubC implements a Switch statement in assembly this way:
+
+```
+	test the expression
+	jump to the ls_label
+la:	case a code	// Including a jump to lb if a break
+lb:	case b code
+ldef:   default code
+	jump to lb
+
+ls:	load a pointer to the switch jump table
+	call code to jump to la, lb or ldef
+	switch jump table
+lb:
+```
+As with the For loop, the switch block code is generated sequentially, with
+appropriate labels and jumps to delay the selection of the correct
+option until after all the switch blocks.
+
+I'm not going to cover the operation of the code that interprets the switch
+jump table. This is hand-coded assembly code in [src/lib/crt0.s](src/lib/crt0.s)
+if you want to see it.
+
+We start with `switch_stmt()`:
+
+```
+static void switch_stmt(void) {
+        Token = scan();                 // Skip the 'switch' token
+        lparen();                       // Get the '(' token
+        rexpr();                        // Parse the expression
+        commit();                       // Flush the insruction queue
+        clear(0);                       // Primary register is now empty, but
+                                        // don't touch the instruction queue.
+                                        // XXX Why not?
+        rparen();                       // Get the ')' token
+        if (Token != LBRACE)            // Syntax error if '{' not the next token
+                error("'{' expected after 'switch'", NULL);
+        switch_block();                 // Now parse the switch block itself
+}
+```
+
+which does the parsing of the tokens and calls `rexpr()` to generate the
+code to evaluate the Switch expression. I'm still not sure why `clear()`
+is called with argument 1. With the top of the Switch statement parsed,
+we call `switch_block()`:
+
+```
+static void switch_block(void) {
+        int     lb, ls, ldflt = 0;
+        int     cval[MAXCASE];          // List of case values and case labels
+        int     clab[MAXCASE];
+        int     nc = 0;                 // Start with no cases found yet
+
+        Token = scan();                 // Skip the '{' token
+        pushbrk(lb = label());          // Get a label for the end of the block
+                                        // and add it to the break queue
+        ls = label();                   // Generate a label for the jump table
+        genjump(ls);                    // and jump to it
+        while (RBRACE != Token) {       // Until we find the closing '}'
+                if (eofcheck()) return;
+                                        // Error if too many cases
+                if ((CASE == Token || DEFAULT == Token) && nc >= MAXCASE) {
+                        error("too many 'case's in 'switch'", NULL);
+                        nc = 0;
+                }
+                if (CASE == Token) {            // Find and skip a 'case' token
+                        Token = scan();
+                        cval[nc] = constexpr(); // Get the case expression
+                                                // and generate a label for it
+                        genlab(clab[nc++] = label());
+                        colon();                // Get the ':' token
+                }
+                else if (DEFAULT == Token) {    // Find and skip a 'default' token
+                        Token = scan();
+                        ldflt = label();        // Get a label for the default case
+                        genlab(ldflt);          // and output this label
+                        colon();                // Get the ':' token
+                }
+                else
+                        stmt();                 // Otherwise parse a statement
+        }
+        if (!nc) {                              // If we have some case statements
+                if (ldflt) {                    // Add the default label with
+                        cval[nc] = 0;           // value to the value/label lists
+                        clab[nc++] = ldflt;
+                }
+                else
+                        error("empty switch", NULL);    // Error if no cases
+        }
+        genjump(lb);                    // Output a jump to the end label
+        genlab(ls);                     // Generate the jump table label
+        genswitch(cval, clab, nc, ldflt? ldflt: lb);    // Generate the jump table
+        gentext();                      // Go back to the text segment
+        genlab(lb);                     // Generate the break label
+        Token = scan();                 // Get the next token
+        Bsp--;                          // And pop the break label from the stack
+}
+```
+
+The code builds a list of `case` values in `cval[]` and the
+labels that precede the code for these cases in `clab[]`.
+
+The `while (RBRACE != Token) { ... }` loops until the matching '}' token is
+received. For each `case` token, The `case` value is calculated (by the
+compiler, right now) with `constexpr()` and stored in `cval[]`
+along with a label in `clab[]`. The label is output immediately.
+The same is done for `default` except that its label is stored in
+the `ldflt` variable.
+
+For statements, we simply call `stmt()` to generate the assembly code.
+
+Thus, a switch block that looks like:
+
+```
+    case 'a':
+    case 'b': printf("Hello\n"); break;
+    default:  printf("world\n");
+```
+
+will be translated to:
+
+```
+L1:
+L2:   printf("Hello\n") code
+      jump to lb
+Ldef: printf("world\n") code
+```
+
+Once we receive the ending '}' token and fall out of the `while (RBRACE != Token)`
+loop, the code verifies that there was at least one `case` or `default` label; if
+not, we have a semantic error.
+
+The `default` label is placed on the end of the list of `case` labels.
+
+Right now, the last assembly code generated was probably the `default` code.
+We know that, coming up next, is the code to deal with the switch jump table.
+So output a jump to the break label with `genjump(lb)`.
+
+Now it's time to deal with the jump table. Output the label for this code
+with `genlab(ls)`. Generate the table itself with `genswitch()`: I'll cover
+this later on. Finally, generate the `break` label with `genlab(lb)`.
+
+## Conclusion
+
+That's the parsing of the control statements done:
+
+ + compound statements
+ + Do .. While loops
+ + While loops
+ + For loops
+ + If/Else statements
+ + Switch statements
+ + `break` and `continue`
+
+[src/stmt.c](src/stmt.c) also has a function that deals with the C `return` keyword,
+but this checks if the value being returned matches the declaration of the function
+being returned on. As this requires knowledge of declarations, we will hold this over
+until we cover declaration parsing.

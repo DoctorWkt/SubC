@@ -151,7 +151,7 @@ static void for_stmt(void) {
 static void if_stmt(void) {
 	int	l1, l2;
 
-	Token = scan();			// Skip the 'for' token
+	Token = scan();			// Skip the 'if' token
 	lparen();			// Get the '(' token
 	rexpr();			// Parse the expression
 	l1 = label();			// Get the label for non-true code
@@ -218,8 +218,8 @@ static void switch_block(void) {
 	Token = scan();			// Skip the '{' token
 	pushbrk(lb = label());		// Get a label for the end of the block
 					// and add it to the break queue
-	ls = label();			// Generate a label for the top of the block
-	genjump(ls);
+	ls = label();			// Generate a label for the jump table
+	genjump(ls);			// and jump to it
 	while (RBRACE != Token) {	// Until we find the closing '}'
 		if (eofcheck()) return;
 					// Error if too many cases
@@ -251,18 +251,17 @@ static void switch_block(void) {
 		else
 			error("empty switch", NULL);	// Error if no cases
 	}
-	genjump(lb);			// Output a jump to the end label, I assume
-					// for when no cases match? XXX Check
-	genlab(ls);			// Generate the top label
+	genjump(lb);			// Output a jump to the end label
+	genlab(ls);			// Generate the jump table label
 	genswitch(cval, clab, nc, ldflt? ldflt: lb);	// Generate the jump table
 	gentext();			// Go back to the text segment
-	genlab(lb);			// Generate the bottom label
+	genlab(lb);			// Generate the break label
 	Token = scan();			// Get the next token
 	Bsp--;				// And pop the break label from the stack
 }
 
 static void switch_stmt(void) {
-	Token = scan();			// Skip the 'while' token
+	Token = scan();			// Skip the 'switch' token
 	lparen();			// Get the '(' token
 	rexpr();			// Parse the expression
 	commit();			// Flush the insruction queue
