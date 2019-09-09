@@ -129,14 +129,14 @@ node *mkbinop2(int op, int n1, int n2, node *left, node *right) {
 
 static void dumpleaf(char *s, node *a) {
 	switch (a->op) {
-		OP_LIT:  printf("%s %d\n", s, a->args[0]); break;
+		case OP_LIT:  printf("%s %d\n", s, a->args[0]); break;
 		default: printf("%s %s\n", s, Names[ a->args[0] ]);
 	}
 }
 
 static void dumpunop1(char *s, node *a) {
 	switch (a->op) {
-		OP_LDLAB: printf("%s L%d\n", s, a->args[0]); break;
+		case OP_LDLAB: printf("%s L%d\n", s, a->args[0]); break;
 		default:  printf("%s %d\n", s, a->args[0]);
 	}
 	Level++;
