@@ -48,45 +48,45 @@
 
 /* types */
 enum {
-	TVARIABLE = 1,
-	TARRAY,
-	TFUNCTION,
-	TCONSTANT,
-	TMACRO,
-	TSTRUCT
+	TVARIABLE = 1,		// Variable
+	TARRAY,			// Array
+	TFUNCTION,		// Function
+	TCONSTANT,		// Literal constant
+	TMACRO,			// Pre-processor macro
+	TSTRUCT			// Struct or union
 };
 
 /* primitive types */
 enum {
-	PCHAR = 1,
-	PINT,
-	CHARPTR,
-	INTPTR,
-	CHARPP,
-	INTPP,
-	PVOID,
-	VOIDPTR,
-	VOIDPP,
-	FUNPTR,
-	PSTRUCT = 0x2000,
-	PUNION  = 0x4000,
-	STCPTR  = 0x6000,
-	STCPP   = 0x8000,
-	UNIPTR  = 0xA000,
-	UNIPP   = 0xC000,
-	STCMASK = 0xE000
+	PCHAR = 1,		// unsigned char
+	PINT,			// signed int
+	CHARPTR,		// char pointer
+	INTPTR,			// int pointer
+	CHARPP,			// char pointer pointer
+	INTPP,			// int pointer pointer
+	PVOID,			// void
+	VOIDPTR,		// void pointer
+	VOIDPP,			// void pointer pointer
+	FUNPTR,			// function pointer
+	PSTRUCT = 0x2000,	// struct
+	PUNION  = 0x4000,	// union
+	STCPTR  = 0x6000,	// struct pointer
+	STCPP   = 0x8000,	// struct pointer pointer
+	UNIPTR  = 0xA000,	// union pointer
+	UNIPP   = 0xC000,	// union pointer pointer
+	STCMASK = 0xE000	// mask for struct/union bits
 };
 
 /* storage classes */
 enum {
-	CPUBLIC = 1,
-	CEXTERN,
-	CSTATIC,
-	CLSTATC,
-	CAUTO,
-	CSPROTO,
-	CMEMBER,
-	CSTCDEF
+	CPUBLIC = 1,		// publicly visible symbol
+	CEXTERN,		// extern symbol
+	CSTATIC,		// static symbols in global context
+	CLSTATC,		// static symbols in local context
+	CAUTO,			// non-static local identifiers
+	CSPROTO,		// function prototype
+	CMEMBER,		// field of a struct/union
+	CSTCDEF			// unused
 };
 
 /* lvalue structure */
