@@ -41,7 +41,7 @@ If you've cloned this GitHub repository to a Linux or BSD box, you should
 be able to do:
 
 ```
-$ configure
+$ ./configure
 ```
 
 to get the source ready to compile on your system. Then `cd src` into

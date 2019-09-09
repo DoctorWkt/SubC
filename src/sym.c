@@ -83,9 +83,12 @@ int findstruct(char *s) {
 	return 0;
 }
 
-// XXX: Find a struct member, but why the y parameter?
+// Find a struct member. The y parameter (I think) is
+// the symbol slot number of the parent struct or union.
 int findmem(int y, char *s) {
 	y++;
+	// Search through all the CMEMBERs immediately
+	// following the y slot
 	while (	(y < Globs ||
 		 (y >= Locs && y < NSYMBOLS)) &&
 		CMEMBER ==  Stcls[y]

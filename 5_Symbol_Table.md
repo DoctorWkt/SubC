@@ -577,7 +577,134 @@ int redeclare(char *name, int oldcls, int newcls) {
 }
 ```
 
-## XXX Finding Symbols: to do
+## Finding Symbols in the Symbol Table
+
+We now have the ability to put symbols into the symbol table. Now that they are
+in there, it's time to create mechanisms to search for them. SubC provides six
+functions to do this:
+
+ + `findglob()`: Find a symbol in the global symbol table
+ + `findloc()`: Find a symbol in the local symbol table
+ + `findsym()`: Find a symbol in either symbol table
+ + `findmac()`: Find a macro definition
+ + `findstruct()`: Find a structure definition
+ + `findmem()`: Find a member of a structure or union
+
+Each function is relatively simple, so let's look at them.
+
+### `findglob()`: Find A Global Symbol
+
+```
+// Determine if the symbol s is in the global symbol table.
+// Return its slot position or 0 if not found. Global symbols
+// occupy the bottom section of the symbol table.
+int findglob(char *s) {
+        int     i;
+
+        for (i=0; i<Globs; i++) {
+                // It must not be a macro, not a struct member.
+                // Match on the first char to speed up the strcmp()
+                if (    Types[i] != TMACRO && Stcls[i] != CMEMBER &&
+                        *s == *Names[i] && !strcmp(s, Names[i])
+                )
+                        return i;
+        }
+        return 0;
+}
+```
+
+### `findloc()`: Find A Local Symbol
+
+```
+// Determine if the symbol s is in the local symbol table.
+// Return its slot position or 0 if not found. Local symbols
+// occupy the top section of the symbol table.
+int findloc(char *s) {
+        int     i;
+
+        for (i=Locs; i<NSYMBOLS; i++) {
+                // It must not be a struct member.
+                // Match on the first char to speed up the strcmp()
+                if (    Stcls[i] != CMEMBER &&
+                        *s == *Names[i] && !strcmp(s, Names[i])
+                )
+                        return i;
+        }
+        return 0;
+}
+```
+
+### `findsym()`: Find Either A Global or Local Symbol
+
+```
+// Find the slot of a symbol, or return 0 if not found.
+// Search the local symbols before the global symbols.
+int findsym(char *s) {
+        int     y;
+
+        if ((y = findloc(s)) != 0) return y;
+        return findglob(s);
+}
+```
+
+### `findmac()`: Find A Macro Definition
+
+```
+int findmac(char *s) {
+        int     i;
+
+        for (i=0; i<Globs; i++)
+                if (    TMACRO == Types[i] &&
+                        *s == *Names[i] && !strcmp(s, Names[i])
+                )
+                        return i;
+        return 0;
+}
+```
+
+### `findstruct()`: Find A Structure Definition
+
+```
+// Determine if the symbol s is a structure definition.
+// Return its slot position or 0 if not found.
+// Search the local symbols before the global symbols.
+int findstruct(char *s) {
+        int     i;
+
+        for (i=Locs; i<NSYMBOLS; i++)
+                if (    TSTRUCT == Types[i] &&
+                        *s == *Names[i] && !strcmp(s, Names[i])
+                )
+                        return i;
+        for (i=0; i<Globs; i++)
+                if (    TSTRUCT == Types[i] &&
+                        *s == *Names[i] && !strcmp(s, Names[i])
+                )
+                        return i;
+        return 0;
+}
+```
+
+### `findmem()`: Find a Member of a Struct or Union
+
+```
+// Find a struct member. The y parameter (I think) is 
+// the symbol slot number of the parent struct or union.
+int findmem(int y, char *s) {
+        y++;
+        // Search through all the CMEMBERs immediately
+        // following the y slot
+        while ( (y < Globs ||
+                 (y >= Locs && y < NSYMBOLS)) &&
+                CMEMBER ==  Stcls[y]
+        ) {
+                if (*s == *Names[y] && !strcmp(s, Names[y]))
+                        return y;
+                y++;
+        }
+        return 0;
+}
+```
 
 ## Conclusion
 
@@ -586,7 +713,7 @@ variable, function, structure, union or pre-processor macro is declared.
 Each symbol has a number of attributes, and is also seen as either
 globally visible or locally visible.
 
-[src/sym.c](src/sym.c) deals with
+[src/sym.c](src/sym.c) deals with:
 
  + the allocation of symbol tables into the symbol table
  + the generation of assembly code for global and static variables
