@@ -12,10 +12,9 @@ static node *asgmnt(struct lvalue *lv);
 static node *cast(struct lvalue *lv);
 static node *exprlist(struct lvalue *lv, int ckvoid);
 
-// Convert an lvalue into an rvalue. If the lvalue has no
-// address, simply return it. If it does, set the address to zero
-// and create a unary operation node with OP_RVAL. The optimiser
-// will work on this later. XXX: more details?
+// Convert an lvalue AST node into an rvalue node. If this really is an
+// lvalue, generate an OP_RVAL AST node to get the symbol's value which
+// is of type prim. Otherwise, just return this node as an rvalue.
 static node *rvalue(node *n, struct lvalue *lv) {
 	if (lv->addr) {
 		lv->addr = 0;
@@ -39,14 +38,16 @@ static node *rvalue(node *n, struct lvalue *lv) {
  *	| STRLIT string
  */
 
-// Given an lvalue, parse a primary factor and return an
+// Given an lvalue node, parse a primary factor and return an
 // AST node representing it.
 static node *primary(struct lvalue *lv) {
 	node	*n = NULL;
 	int	y, lab, k;
 	char	name[NAMELEN+1];
 
+	// Start with it empty
 	lv->prim = lv->sym = lv->addr = 0;
+
 	switch (Token) {
 	case IDENT:
 		// Find the identifier in the symbol table,
@@ -77,6 +78,9 @@ static node *primary(struct lvalue *lv) {
 		lv->sym = y;
 		lv->prim = Prims[y];
 
+		// If the next token isn't a '(', it's a function
+		// pointer, so make a function pointer node
+		// for the given symbol
 		if (TFUNCTION == Types[y]) {
 			if (LPAREN != Token) {
 				lv->prim = FUNPTR;
@@ -85,26 +89,35 @@ static node *primary(struct lvalue *lv) {
 			return n;
 		}
 
-		// Constant: make a OP_LIT node with the value
+		// Constant: make an OP_LIT node with the value
 		if (TCONSTANT == Types[y]) {
 			return mkleaf(OP_LIT, Vals[y]);
 		}
 
-		// Array: make an OP_ADDR node XXX
+		// Array: make an OP_ADDR node with the
+		// type being a pointer to the array's primitive type
 		if (TARRAY == Types[y]) {
 			n = mkleaf(OP_ADDR, y);
 			lv->prim = pointerto(lv->prim);
 			return n;
 		}
+
+		// If it's a struct or union,
+		// make an OP_ADDR node to the struct/union
 		if (comptype(Prims[y])) {
 			n = mkleaf(OP_ADDR, y);
-			lv->sym = 0;
+			lv->sym = 0;	// XXX: Why this?
 			return n;
 		}
+
+		// An ordinary scalar variable, so make an IDENT node
+		// for the symbol, and mark it as a true lvalue
 		n = mkleaf(OP_IDENT, y);
 		lv->addr = 1;
 		return n;
 	case INTLIT:
+		// Literal integer, make an OP_LIT node with the value
+		// and an int primary type. Move up to the next token.
 		n = mkleaf(OP_LIT, Value);
 		Token = scan();
 		lv->prim = PINT;
@@ -114,15 +127,17 @@ static node *primary(struct lvalue *lv) {
 		lab = label();			// Make a new label and
 		genlab(lab);			// output it
 		k = 0;
-		while (STRLIT == Token) {
-			gendefs(Text, Value);
-			k += Value-2;
-			Token = scan();
+		while (STRLIT == Token) {	// Allow successive "x" "y"
+			gendefs(Text, Value);	// string literals
+			k += Value-2;		// XXX: length - ""?
+			Token = scan();		// until we hit something else
 		}
-		gendefb(0);
-		genalign(k+1);
-		n = mkleaf(OP_LDLAB, lab);
-		lv->prim = CHARPTR;
+		gendefb(0);			// Output the NUL terminator
+		genalign(k+1);			// Align on a word boundary
+		n = mkleaf(OP_LDLAB, lab);	// Node refers to the label
+		lv->prim = CHARPTR;		// and is a char pointer
+						// Not marked as addr=1
+						// as the string is mutable
 		return n;
 	case LPAREN:
 		Token = scan();			// Skip the '('
@@ -130,6 +145,7 @@ static node *primary(struct lvalue *lv) {
 		rparen();			// Match the ')' and
 		return n;			// return the node
 	default:
+		// It's a syntax error, skip tokens up to the next semicolon
 		error("syntax error at: %s", Text);
 		Token = synch(SEMI);
 		return NULL;
@@ -832,21 +848,33 @@ int arithop(int tok) {
  *	| condexpr |= asgmnt
  */
 
+// Parse the possible assignment expressions
 static node *asgmnt(struct lvalue *lv) {
 	node	*n, *n2, *src;
 	struct lvalue lv2, lvs;
 	int	op;
 
+	// Parse the conditional expression
 	n = cond3(lv);
+
+	// If it's followed by one of these tokens
 	if (ASSIGN == Token || ASDIV == Token || ASMUL == Token ||
 		ASMOD == Token || ASPLUS == Token || ASMINUS == Token ||
 		ASLSHIFT == Token || ASRSHIFT == Token || ASAND == Token ||
 		ASXOR == Token || ASOR == Token
 	) {
+		// Keep the token and scan the next token
 		op = Token;
 		Token = scan();
+
+		// Parse the following expression
+		// and convert it into a proper rvalue
 		n2 = asgmnt(&lv2);
 		n2 = rvalue(n2, &lv2);
+
+		// If this is a straight assignment (no operation),
+		// check that the lvalue/rvalue types match,
+		// and generate an OP_ASSIGN node: sym = rvalue
 		if (ASSIGN == op) {
 			if (!typematch(lv->prim, lv2.prim))
 				error("assignment from incompatible type",
@@ -854,14 +882,24 @@ static node *asgmnt(struct lvalue *lv) {
 			n = mkbinop2(OP_ASSIGN, lv->prim, lv->sym, n, n2);
 		}
 		else {
+			// Copy the node from the left-hand side
+			// and convert it into an rvalue to get its value
 			memcpy(&lvs, lv, sizeof(lvs));
 			src = rvalue(n, &lvs);
+
+			// Build an node to perform the operation
+			// on the copied rvalue and the second operand,
+			// which generates a new rvalue n2
 			n2 = mkop(arithop(op), lv->prim, lv2.prim,
 				src, n2);
+			// Generate an OP_ASSIGN node: sym = n2
 			n = mkbinop2(OP_ASSIGN, lv->prim, lv->sym, n, n2);
 		}
+		// If the lvalue wasn't actually an lvalue, error
 		if (!lv->addr)
 			error("lvalue expected in assignment", Text);
+		// The node we return holds the result of the assignment,
+		// so it's no longer an lvalue
 		lv->addr = 0;
 	}
 	return n;

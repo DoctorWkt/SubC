@@ -91,9 +91,9 @@ enum {
 
 /* lvalue structure */
 struct lvalue {
-	int sym;
-	int prim;
-	int addr;
+	int sym;	// Symbol table slot number for the rvalue
+	int prim;	// Primary type for the expression
+	int addr;	// If true, is definitely an lvalue & has an address
 };
 
 /* debug options */
