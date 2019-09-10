@@ -638,12 +638,12 @@ void gendefw(int v) {
 
 /* increment ops */
 
-static void genincptr(int *lv, int inc, int pre) {
+static void genincptr(struct lvalue *lv, int inc, int pre) {
 	int	y, size;
 
-	size = objsize(deref(lv[LVPRIM]), TVARIABLE, 1);
+	size = objsize(deref(lv->prim), TVARIABLE, 1);
 	gentext();
-	y = lv[LVSYM];
+	y = lv->sym;
 	commit();
 	if (!y && !pre) cgldinc();
 	if (!pre) {
@@ -683,16 +683,16 @@ static void genincptr(int *lv, int inc, int pre) {
 	if (pre) genrval(lv);
 }
 
-void geninc(int *lv, int inc, int pre) {
+void geninc(struct lvalue *lv, int inc, int pre) {
 	int	y, b;
 
 	gentext();
-	y = lv[LVSYM];
-	if (needscale(lv[LVPRIM])) {
+	y = lv->sym;
+	if (needscale(lv->prim)) {
 		genincptr(lv, inc, pre);
 		return;
 	}
-	b = PCHAR == lv[LVPRIM];
+	b = PCHAR == lv->prim;
 	/* will duplicate move to aux register in (*char)++ */
 	commit();
 	if (!y && !pre) cgldinc();
@@ -753,61 +753,61 @@ void genswitch(int *vals, int *labs, int nc, int dflt) {
 
 /* assigments */
 
-void genstore(int *lv) {
+void genstore(struct lvalue *lv) {
 	if (NULL == lv) return;
 	gentext();
-	if (!lv[LVSYM]) {
+	if (!lv->sym) {
 		cgpopptr();
-		if (PCHAR == lv[LVPRIM])
+		if (PCHAR == lv->prim)
 			cgstorib();
 		else
 			cgstoriw();
 
 	}
-	else if (CAUTO == Stcls[lv[LVSYM]]) {
-		if (PCHAR == lv[LVPRIM])
-			cgstorlb(Vals[lv[LVSYM]]);
+	else if (CAUTO == Stcls[lv->sym]) {
+		if (PCHAR == lv->prim)
+			cgstorlb(Vals[lv->sym]);
 		else
-			cgstorlw(Vals[lv[LVSYM]]);
+			cgstorlw(Vals[lv->sym]);
 	}
-	else if (CLSTATC == Stcls[lv[LVSYM]]) {
-		if (PCHAR == lv[LVPRIM])
-			cgstorsb(Vals[lv[LVSYM]]);
+	else if (CLSTATC == Stcls[lv->sym]) {
+		if (PCHAR == lv->prim)
+			cgstorsb(Vals[lv->sym]);
 		else
-			cgstorsw(Vals[lv[LVSYM]]);
+			cgstorsw(Vals[lv->sym]);
 	}
 	else {
-		if (PCHAR == lv[LVPRIM])
-			cgstorgb(gsym(Names[lv[LVSYM]]));
+		if (PCHAR == lv->prim)
+			cgstorgb(gsym(Names[lv->sym]));
 		else
-			cgstorgw(gsym(Names[lv[LVSYM]]));
+			cgstorgw(gsym(Names[lv->sym]));
 	}
 }
 
 /* genrval computation */
 
-void genrval(int *lv) {
+void genrval(struct lvalue *lv) {
 	if (NULL == lv) return;
 	gentext();
-	if (!lv[LVSYM]) {
-		genind(lv[LVPRIM]);
+	if (!lv->sym) {
+		genind(lv->prim);
 	}
-	else if (CAUTO == Stcls[lv[LVSYM]]) {
-		if (PCHAR == lv[LVPRIM])
-			queue(auto_byte, Vals[lv[LVSYM]], NULL);
+	else if (CAUTO == Stcls[lv->sym]) {
+		if (PCHAR == lv->prim)
+			queue(auto_byte, Vals[lv->sym], NULL);
 		else
-			queue(auto_word, Vals[lv[LVSYM]], NULL);
+			queue(auto_word, Vals[lv->sym], NULL);
 	}
-	else if (CLSTATC == Stcls[lv[LVSYM]]) {
-		if (PCHAR == lv[LVPRIM])
-			queue(static_byte, Vals[lv[LVSYM]], NULL);
+	else if (CLSTATC == Stcls[lv->sym]) {
+		if (PCHAR == lv->prim)
+			queue(static_byte, Vals[lv->sym], NULL);
 		else
-			queue(static_word, Vals[lv[LVSYM]], NULL);
+			queue(static_word, Vals[lv->sym], NULL);
 	}
 	else {
-		if (PCHAR == lv[LVPRIM])
-			queue(globl_byte, 0, Names[lv[LVSYM]]);
+		if (PCHAR == lv->prim)
+			queue(globl_byte, 0, Names[lv->sym]);
 		else
-			queue(globl_word, 0, Names[lv[LVSYM]]);
+			queue(globl_word, 0, Names[lv->sym]);
 	}
 }

@@ -265,7 +265,7 @@ void emitargs(node *a) {
 }
 
 static void emittree1(node *a) {
-	int	lv[LV];
+	struct lvalue lv;
 	int	ptr;
 
 	if (NULL == a) return;
@@ -276,14 +276,14 @@ static void emittree1(node *a) {
 	case OP_PREINC:	/* fallthru */
 	case OP_PREDEC:	/* fallthru */
 	case OP_POSTINC:/* fallthru */
-	case OP_POSTDEC:lv[LVPRIM] = a->args[0];
-			lv[LVSYM] = a->args[1];
+	case OP_POSTDEC:lv.prim = a->args[0];
+			lv.sym = a->args[1];
 			emittree1(a->left);
 			switch (a->op) {
-			case OP_PREINC:	geninc(lv, 1, 1); break;
-			case OP_PREDEC:	geninc(lv, 0, 1); break;
-			case OP_POSTINC:geninc(lv, 1, 0); break;
-			case OP_POSTDEC:geninc(lv, 0, 0); break;
+			case OP_PREINC:	geninc(&lv, 1, 1); break;
+			case OP_PREDEC:	geninc(&lv, 0, 1); break;
+			case OP_POSTINC:geninc(&lv, 1, 0); break;
+			case OP_POSTDEC:geninc(&lv, 0, 0); break;
 			}
 			break;
 	case OP_SCALEBY:emittree1(a->left);
@@ -295,9 +295,9 @@ static void emittree1(node *a) {
 			break;
 	case OP_LDLAB:	genldlab(a->args[0]); break;
 	case OP_RVAL:	emittree1(a->left);
-			lv[LVPRIM] = a->args[0];
-			lv[LVSYM] = a->args[1];
-			genrval(lv);
+			lv.prim = a->args[0];
+			lv.sym = a->args[1];
+			genrval(&lv);
 			break;
 	case OP_BOOL:	emittree1(a->left);
 			genbool();
@@ -392,9 +392,9 @@ static void emittree1(node *a) {
 			commit();
 			spill();
 			clear(0);
-			lv[LVPRIM] = FUNPTR;
-			lv[LVSYM] = a->args[0];
-			genrval(lv);
+			lv.prim = FUNPTR;
+			lv.sym = a->args[0];
+			genrval(&lv);
 			gencalr();
 			genstack((a->args[1]) * BPW);
 			break;
@@ -409,9 +409,9 @@ static void emittree1(node *a) {
 				emittree1(a->right);
 				commit();
 			}
-			lv[LVPRIM] = a->args[0];
-			lv[LVSYM] = a->args[1];
-			genstore(lv);
+			lv.prim = a->args[0];
+			lv.sym = a->args[1];
+			genstore(&lv);
 			break;
 	}
 }

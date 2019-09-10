@@ -22,30 +22,50 @@ static int declarator(int arg, int scls, char *name, int *pprim, int *psize,
  *	| IDENT = constexpr
  */
 
+// Parse an enum declaration. If glob is true, this
+// is a global declaration.
 static void enumdecl(int glob) {
+	// Start the first enumerator as value zero
 	int	v = 0;
 	char	name[NAMELEN+1];
 
+	// Get the next token. Skip it if it's an identifier
 	Token = scan();
 	if (IDENT == Token)
 		Token = scan();
+
+	// Ensure we have a following '{'.
+	// Then loop until we get the end '}'
 	lbrace();
 	while (RBRACE != Token) {
+		// Copy the enumerator name and ensure
+		// it's a valid identifier
 		copyname(name, Text);
 		ident();
+		
+		// If this is followed by an '=',
+		// scan the following token(s), verify
+		// this is a constant and get its value
 		if (ASSIGN == Token) {
 			Token = scan();
 			v = constexpr();
 		}
+
+		// Add the enumerator name and value
+		// to the relevant symbol table
 		if (glob)
 			addglob(name, PINT, TCONSTANT, 0, 0, v++, NULL, 0);
 		else
 			addloc(name, PINT, TCONSTANT, 0, 0, v++, 0);
+
+		// Look back if next token is a ',', else stop now.
+		// Also deal with end of files
 		if (Token != COMMA)
 			break;
 		Token = scan();
 		if (eofcheck()) return;
 	}
+	// The definition must end with a '}' ';'
 	rbrace();
 	semi();
 }
@@ -101,15 +121,23 @@ static int initlist(char *name, int prim) {
 	return n;
 }
 
+// Given a token t, convert it into a type.
+// If it's a struct/union, s holds the name of this.
+// Return the type value.
 int primtype(int t, char *s) {
 	int	p, y;
 	char	sname[NAMELEN+1];
 
+	// Convert from token value to type value
 	p = t == CHAR? PCHAR:
 		t == INT? PINT:
 		t == STRUCT? PSTRUCT:
 		t == UNION? PUNION:
 		PVOID;
+
+	// If a struct or union and no name given,
+	// scan the next token to get it. Check this
+	// is an IDENT token.
 	if (PUNION == p || PSTRUCT == p) {
 		if (!s) {
 			Token = scan();
@@ -120,8 +148,10 @@ int primtype(int t, char *s) {
 				return p;
 			}
 		}
+		// Now check that this struct/union exists
 		if ((y = findstruct(s)) == 0 || Prims[y] != p)
 			error("no such struct/union: %s", s);
+		// Add in the struct/union bitfield to the primitive type
 		p |= y;
 	}
 	return p;
@@ -425,6 +455,11 @@ static int localdecls(void) {
 	return addr;
 }
 
+// Walk two integer lists and return the difference
+// between the first different elements. The list
+// ends with a zero element. This is used to
+// compare the signature of an existing function
+// against a new function signature.
 static int intcmp(int *x1, int *x2) {
 	while (*x1 && *x1 == *x2)
 		x1++, x2++;
@@ -528,52 +563,80 @@ void decl(int clss, int prim) {
  *	| declatator , mdecl_list
  */
 
+// Parse the definition of a struct or union.
+// clss is the storage class already specified.
+// uniondecl is true if this is a union declaration.
 void structdecl(int clss, int uniondecl) {
 	int	base, prim, size, dummy, type, addr = 0;
 	char	name[NAMELEN+1], sname[NAMELEN+1];
 	int	y, usize = 0;
 
+	// Get the name of the struct/union and copy it
+	// into sname. Confirm this was an identifier
+	// and get the next token next token
 	Token = scan();
 	copyname(sname, Text);
 	ident();
+
+	// The next token wasn't an '{', so this must be the
+	// declaration of a variable. Check that such a struct/union
+	// exists with primtype(). Then call decl() to parse the
+	// variable's definition.
 	if (Token != LBRACE) {
 		prim = primtype(uniondecl? UNION: STRUCT, sname);
 		decl(clss, prim);
 		return;
 	}
+
+	// This is a struct/union definition. Add a symbol for
+	// it in the global symbol table.
 	y = addglob(sname, uniondecl? PUNION: PSTRUCT, TSTRUCT,
 			CMEMBER, 0, 0, NULL, 0);
+
+	// Loop reading in the member definitions for the struct/union
 	Token = scan();
 	while (	INT == Token || CHAR == Token || VOID == Token ||
 		STRUCT == Token || UNION == Token
 	) {
+		// Convert the token into a type value: PCHAR, PINT etc.
 		base = primtype(Token, NULL);
 		size = 0;
 		Token = scan();
 		for (;;) {
 			if (eofcheck()) return;
+			// XXX Not sure why prim wasn't used 5 lines above
 			prim = base;
+			// Parse and verify the member's name
 			type = declarator(1, clss, name, &prim, &size,
 						&dummy, &dummy);
+			// Add it as a member of the struct/union
 			addglob(name, prim, type, CMEMBER, size, addr,
 				NULL, 0);
+			// Get the member's size in bytes
 			size = objsize(prim, type, size);
 			if (size < 0)
 				error("size of struct/union member"
 					" is unknown: %s",
 					name);
+			// If a union, keep the size of the biggest member
 			if (uniondecl) {
 				usize = size > usize? size: usize;
 			}
+			// Otherwise add on member's size to the total size.
+			// Ensure this is aligned to the size of an int.
 			else {
 				addr += size;
 				addr = (addr + INTSIZE-1) / INTSIZE * INTSIZE;
 			}
+			// Loop back on a ',' for another member, else stop
 			if (Token != COMMA) break;
 			Token = scan();
 		}
-		semi();
+		semi();		// Finally parse the ';' at the end
 	}
+
+	// The definition must end with a '}' ';'
+	// Set up the size of the struct/union in bytes
 	rbrace();
 	semi();
 	Sizes[y] = uniondecl? usize: addr;

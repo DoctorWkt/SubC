@@ -177,13 +177,13 @@ static void if_stmt(void) {
  */
 
 static void return_stmt(void) {
-	int	lv[LV];
+	struct lvalue lv;
 
 	Token = scan();			// Skip the 'return' token
 	if (Token != SEMI) {		// If there's an expression
-		expr(lv, 1);		// Parse it and check its type matches
+		expr(&lv, 1);		// Parse it and check its type matches
 					// this function
-		if (!typematch(lv[LVPRIM], Prims[Thisfn]))
+		if (!typematch(lv.prim, Prims[Thisfn]))
 			error("incompatible type in 'return'", NULL);
 	}
 					// No return value, so check
@@ -331,7 +331,7 @@ static void wrong_ctx(int t) {
 // Parse all the possible C statements
 // using the above functions
 static void stmt(void) {
-	int	lv[LV];
+	struct lvalue lv;
 
 	switch (Token) {
 	case BREAK:	break_stmt(); break;
@@ -351,7 +351,7 @@ static void stmt(void) {
 
 	// Not a statement, try parsing it as an expression followed
 	// by a semicolon. Flush the insruction queue.
-	default:	expr(lv, 0); semi(); commit(); break;
+	default:	expr(&lv, 0); semi(); commit(); break;
 	}
 	clear(1);	// Primary register is now empty
 }

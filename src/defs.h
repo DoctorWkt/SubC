@@ -90,11 +90,10 @@ enum {
 };
 
 /* lvalue structure */
-enum {
-	LVSYM,
-	LVPRIM,
-	LVADDR,
-	LV
+struct lvalue {
+	int sym;
+	int prim;
+	int addr;
 };
 
 /* debug options */
