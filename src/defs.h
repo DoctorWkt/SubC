@@ -90,10 +90,11 @@ enum {
 };
 
 /* lvalue structure */
+			// Note that struct lvalue can also represent rvalues
 struct lvalue {
-	int sym;	// Symbol table slot number for the rvalue
-	int prim;	// Primary type for the expression
-	int addr;	// If true, is definitely an lvalue & has an address
+        int sym;        // Symbol table slot number for the l/rvalue, or 0 if no symbol
+        int prim;       // Primary type for the expression
+        int addr;       // If true, the l/rvalue is associated with an address
 };
 
 /* debug options */

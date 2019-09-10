@@ -10,6 +10,9 @@
 
 int	Acc = 0;
 
+// Mark the accumulator as unoccupied.
+// Mark the instruction queues as
+// empty if q is true.
 void clear(int q) {
 	Acc = 0;
 	if (q) {
@@ -19,16 +22,20 @@ void clear(int q) {
 	}
 }
 
+// Mark the accumulator as occupied.
 void load(void) {
 	Acc = 1;
 }
 
+// Generate and return a new label number
 int label(void) {
 	static int id = 1;
 
 	return id++;
 }
 
+// Spil the register by pushing it
+// on the stack
 void spill(void) {
 	if (Acc) {
 		gentext();
@@ -36,16 +43,21 @@ void spill(void) {
 	}
 }
 
+// Generate an assembly line as-is
 void genraw(char *s) {
 	if (NULL == Outfile) return;
 	fprintf(Outfile, "%s", s);
 }
 
+// Generate an assembly line with
+// a leading tab and a newline
 void gen(char *s) {
 	if (NULL == Outfile) return;
 	fprintf(Outfile, "\t%s\n", s);
 }
 
+// Generate assembly with a format string,
+// an instruction and a number
 void ngen(char *s, char *inst, int n) {
 	if (NULL == Outfile) return;
 	fputc('\t', Outfile);
@@ -53,6 +65,8 @@ void ngen(char *s, char *inst, int n) {
 	fputc('\n', Outfile);
 }
 
+// Generate assembly with a format string,
+// an instruction and two numbers
 void ngen2(char *s, char *inst, int n, int a) {
 	if (NULL == Outfile) return;
 	fputc('\t', Outfile);
@@ -60,6 +74,7 @@ void ngen2(char *s, char *inst, int n, int a) {
 	fputc('\n', Outfile);
 }
 
+// Generate an instruction with a label argument
 void lgen(char *s, char *inst, int n) {
 	if (NULL == Outfile) return;
 	fputc('\t', Outfile);
@@ -67,6 +82,8 @@ void lgen(char *s, char *inst, int n) {
 	fputc('\n', Outfile);
 }
 
+// Generate an instruction with two arguments,
+// one being a constant and the other a label
 void lgen2(char *s, int v1, int v2) {
 	if (NULL == Outfile) return;
 	fputc('\t', Outfile);
@@ -74,6 +91,8 @@ void lgen2(char *s, int v1, int v2) {
 	fputc('\n', Outfile);
 }
 
+// Generate an instruction with a textual
+// argument, e.g. an identifier
 void sgen(char *s, char *inst, char *s2) {
 	if (NULL == Outfile) return;
 	fputc('\t', Outfile);
@@ -81,6 +100,8 @@ void sgen(char *s, char *inst, char *s2) {
 	fputc('\n', Outfile);
 }
 
+// Generate an instruction with two textual
+// arguments, e.g. identifiers
 void sgen2(char *s, char *inst, int v, char *s2) {
 	if (NULL == Outfile) return;
 	fputc('\t', Outfile);
@@ -88,11 +109,13 @@ void sgen2(char *s, char *inst, int v, char *s2) {
 	fputc('\n', Outfile);
 }
 
+// Generate a label in assembly
 void genlab(int id) {
 	if (NULL == Outfile) return;
 	fprintf(Outfile, "%c%d:\n", LPREFIX, id);
 }
 
+// Return a label's name as a string
 char *labname(int id) {
 	static char	name[100];
 
@@ -100,6 +123,9 @@ char *labname(int id) {
 	return name;
 }
 
+// Return a SubC-specific symbol name by prefixing
+// it with PREFIX, to separate SubC's namespace
+// from the host system
 char *gsym(char *s) {
 	static char	name[NAMELEN+2];
 
@@ -110,31 +136,39 @@ char *gsym(char *s) {
 
 /* administrativa */
 
+// Switch to the data segment
+// in the assembly output
 void gendata(void) {
 	if (Textseg) cgdata();
 	Textseg = 0;
 }
 
+// Switch to the data segment
+// in the assembly output
 void gentext(void) {
 	if (!Textseg) cgtext();
 	Textseg = 1;
 }
 
+// Generate the assembly prelude
 void genprelude(void) {
 	cgprelude();
 	Textseg = 0;
 	gentext();
 }
 
+// Generate the assembly postlude
 void genpostlude(void) {
 	cgpostlude();
 }
 
+// Generate a label for a symbol
 void genname(char *name) {
 	genraw(gsym(name));
 	genraw(":");
 }
 
+// Generate a label for a public symbol
 void genpublic(char *name) {
 	cgpublic(gsym(name));
 }
@@ -329,21 +363,36 @@ void genmod(int swapped) {
 	cgmod();
 }
 
+// Check that a binary operation can be
+// performed on primitive types p1 and p2.
+// Report an error if it can't be performed.
 static void binopchk(int op, int p1, int p2) {
+
+	// Rationalise ASPLUS and ASMINUS ops
 	if (ASPLUS == op)
 		op = PLUS;
 	else if (ASMINUS == op)
 		op = MINUS;
+
+	// Both are integers, OK
 	if (inttype(p1) && inttype(p2))
 		return;
+
+	// Error if either are void or composite types
 	else if (comptype(p1) || comptype(p2))
 		/* fail */;
 	else if (PVOID == p1 || PVOID == p2)
 		/* fail */;
+
+	// OK if PLUS or MINUS and one integer type
 	else if (PLUS == op && (inttype(p1) || inttype(p2)))
 		return;
 	else if (MINUS == op && (!inttype(p1) || inttype(p2)))
 		return;
+
+	// Comparison operators are tricky. It's OK if both
+	// types are the same, or one is a void pointer and
+	// the other is (by elimination?) also a pointer
 	else if ((EQUAL == op || NOTEQ == op || LESS == op ||
 		 GREATER == op || LTEQ == op || GTEQ == op)
 		&&
@@ -376,18 +425,30 @@ void queue_cmp(int op) {
 	Q_cmp = op;
 }
 
+// Determine the type of an expression with
+// a binary operator.
 int binoptype(int op, int p1, int p2) {
+
+	// Check that the operation is permitted
 	binopchk(op, p1, p2);
+
+	// PLUS is commutative, so return any
+	// non-integer type
 	if (PLUS == op) {
 		if (!inttype(p1)) return p1;
 		if (!inttype(p2)) return p2;
 	}
+
+	// MINUS is not commutative, so favour
+	// p1's type if p2 is integer, otherwise int
 	else if (MINUS == op) {
 		if (!inttype(p1)) {
 			if (!inttype(p2)) return PINT;
 			return p1;
 		}
 	}
+
+	// Return int if none of the above matched
 	return PINT;
 }
 
