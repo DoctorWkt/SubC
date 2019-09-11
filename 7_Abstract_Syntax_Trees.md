@@ -273,7 +273,7 @@ Remember, assignment statements are also expressions in the C language.
  + This node bubbles back to `postfix()` which parses the '[' token. Now we
    know that this is an array reference.
  + `indirection()` is called to check this. It calls `rvalue()` to get a
-    pointer to list. This changes the previous node into:
+    pointer to `list`. This changes the previous node into:
 
 ```
    addr list	(OP_ADDR)
@@ -295,10 +295,10 @@ Remember, assignment statements are also expressions in the C language.
 
 ```
       OP_ADD
-     /     \
- id  list   scale   
-              |
-              2
+     /      \
+ addr list   scale   
+               |
+               2
 ```
 
  + This tree bubbles back up to `binexpr()` which parses the `+` token.
@@ -316,10 +316,10 @@ Remember, assignment statements are also expressions in the C language.
            OP_PLUS
           /      \
       OP_ADD      9
-     /     \
- id  list   scale   
-              |
-              2
+     /      \
+ addr list   scale   
+               |
+               2
 ```
 
  + This tree bubbles back up to `asgmnt()` which still has the tree for the
@@ -332,10 +332,10 @@ Remember, assignment statements are also expressions in the C language.
   id a     OP_PLUS
           /      \
       OP_ADD      9
-     /     \
-  id list   scale   
-              |
-              2
+     /      \
+ addr list   scale   
+               |
+               2
 ```
 
 And when we run `scc -T -t` on this input file, we get:
@@ -352,3 +352,5 @@ x=y 2 1023
     |     `-lit 2
     `-lit 9
 ```
+
+Now, where would be be without recursion?!
