@@ -175,7 +175,13 @@ void genpublic(char *name) {
 
 /* loading values */
 
+// Commit the instruction in the queue
+// and generate an instruction to load
+// the accumulator with a value
 void commit(void) {
+	// Generate any outstanding
+	// comparisons or boolean
+	// operations
 	if (Q_cmp != cnone) {
 		commit_cmp();
 		return;
@@ -185,6 +191,11 @@ void commit(void) {
 		return;
 	}
 	if (empty == Q_type) return;
+
+	// Spill the accumulator so we
+	// can load a new value into it.
+	// The case values should be obvious.
+	// XXX: why cgclear() on byte loads?
 	spill();
 	switch (Q_type) {
 	case addr_auto:		cgldla(Q_val); break;
@@ -200,10 +211,15 @@ void commit(void) {
 	case globl_word:	cgldgw(gsym(Q_name)); break;
 	default:		fatal("internal: unknown Q_type");
 	}
+
+	// Mark the accumulator as occupied
+	// and the queue as empty
 	load();
 	Q_type = empty;
 }
 
+// Queue a load instruction of given type, which
+// either loads the value or the symbol name
 void queue(int type, int val, char *name) {
 	commit();
 	Q_type = type;
@@ -404,6 +420,7 @@ static void binopchk(int op, int p1, int p2) {
 	error("invalid operands to binary operator", NULL);
 }
 
+// Generate a queued comparison instruction
 void commit_cmp(void) {
 	switch (Q_cmp) {
 	case equal:		cgeq(); break;
@@ -420,6 +437,7 @@ void commit_cmp(void) {
 	Q_cmp = cnone;
 }
 
+// Queue a comparison instruction
 void queue_cmp(int op) {
 	commit();
 	Q_cmp = op;
@@ -454,6 +472,7 @@ int binoptype(int op, int p1, int p2) {
 
 /* unary ops */
 
+// Commit a queued boolean operation
 void commit_bool(void) {
 	switch (Q_bool) {
 	case lognot:	cglognot(); break;
@@ -462,11 +481,14 @@ void commit_bool(void) {
 	Q_bool = bnone;
 }
 
+// Queue a boolean operation
 void queue_bool(int op) {
 	commit();
 	Q_bool = op;
 }
 
+// Generate a boolean operation
+// by queueing it
 void genbool(void) {
 	queue_bool(normalize);
 }
@@ -522,6 +544,9 @@ void genjump(int dest) {
 	cgjump(dest);
 }
 
+// Generate a branch instruction.
+// Generate the opposite one when
+// inv is true
 void genbranch(int dest, int inv) {
 	if (inv) {
 		switch (Q_cmp) {
