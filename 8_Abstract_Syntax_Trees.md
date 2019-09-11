@@ -121,7 +121,7 @@ x=y 2 1023	// OP_ASSIGN
   `-id a	// OP_IDENT
   `-lit 2	// OP_LIT
 ```
-
+<hr>
 ```
   int a;
   a= a + 2;
@@ -133,7 +133,7 @@ x=y 2 1023
     | `-id a
     `-lit 2
 ```
-
+<hr>
 ```
   int a;
   int *b;
@@ -145,7 +145,7 @@ x=y 2 1023	// Assign sub-tree value to a
     `- *x 4 b	// Get ptr value from b (OP_ADDR)
       `-id b
 ```
-
+<hr>
 ```
   int a, b;
   if (a == b)
@@ -173,7 +173,7 @@ x==y			// Compare sub-trees (OP_EQUAL)
   `-glue		// OP_GLUE
     `-ldlab L4		// with value at L4 (OP_LDLAB)
 ```
-
+<hr>
 ```
 void main()
 {
@@ -194,7 +194,7 @@ x=y 2 1023		// Assign to a
       `---x 2 1022	// --b's value (OP_PREDEC)
         `-id b
 ```
-
+<hr>
 ```
   int a,b;
   int list[4];
