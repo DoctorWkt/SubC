@@ -92,43 +92,196 @@ When we get to the assignment `fred[2]=4`, `fred` is the name of the array but
 symbol `fred`. So this is a definitely an assignment to an lvalue (which has an
 address), but that address isn't associated with a symbol.
 
-## The Abstract Syntax Tree
+**XXX: Also intruiging is the second line. Explain how an lvalue can have a symbol
+but no address.**
 
-As part of parsing expressions, SubC builds an
-[abstract syntax tree](https://en.wikipedia.org/wiki/Abstract_syntax_tree) (AST)
-for each expression. If you haven't seen these before, I highly recommend you read
-this short explanation of ASTs:
+## Expression BNF Rules and Operator Precedence
 
- + [Leveling Up One’s Parsing Game With ASTs](https://medium.com/basecs/leveling-up-ones-parsing-game-with-asts-d7a6fc2400ff)
-   by Vaidehi Joshi
-
-It's well written and really help to explain the purpose and structure of ASTs.
-Don't worry, I'll be here when you get back.
-
-For this part of the SubC tour, I'm not going to concentrate on the structure of
-the ASTs, but we should at least look at what each node in the AST contains
-(from [src/defs.h](src/defs.h)):
+The C language has an awful lot of operators and many levels
+of [operator precedence](https://en.cppreference.com/w/c/language/operator_precedence).
+Any parser must enforce these precedence levels. We certainly want to calculate:
 
 ```
-/* AST node */
-struct node_stc {
-        int             op;
-        struct node_stc *left, *right;
-        int             args[1];
-};
+        3 + 2 * 6  => 15
+        3 + 2 * 6  => not 30
 ```
 
-Each AST node has zero, one or two children called `left` and `right`, as well
-as an operation (`op`) that links these children together. Each AST node can also have
-zero, one or two `int` arguments. These can be used, for example, to hold a
-literal integer value for an INTLIT token.
+Even though the parser will recognise the '+' token before the '*' token, then '*'
+token has to be performed first.
 
-Leaf nodes are nodes with no children. Here the `op` doesn't represent an operation
-but a characteristic of the leaf node. For example, a literal integer 27 would be
-represented as the node:
+In tools that take a grammar and generate code to recognise it (e.g.
+[yacc](https://en.wikipedia.org/wiki/Yacc)), there are ways to write lists
+of token in order of precedence. The generated code will know to give some
+tokens priority over other tokens.
+
+Another way to enforce token priority is to write the BNF rules of the grammar
+so that we are forced to descend into a non-terminal rule when there are tokens
+with a higher prioriy than the ones we are dealing with.
+
+As an example, here are some of the BNF rules from SubC:
 
 ```
-	OP_LIT
-	NULL, NULL
-	27, 0
+   sum :=
+          term
+        | sum + term
+        | sum - term
+
+   term :=
+          cast
+        | term * cast
+        | term / cast
+        | term % cast
 ```
+
+A *sum* can be a *term*, or it can be a *sum* plus a *term*.
+But note that a *term* can be a *cast* (assume a number for now), or a *term* times
+another *cast*.
+
+Therefore, when we try to parse `3 + 2 * 6`, we can parse up to `3 +`, but then we
+are forced down into the `term` rule where we will parse `2 * 6`. This forces the
+`2 * 6` to be evaluated before the `3 +`. Thus, the '*' operator will get higher
+precedence than the '+' operator.
+
+## The Full SubC Expression BNF Rules
+
+To help you see how SubC does operator precedence, and to help you "see" the
+grammar of SubC expressions, I'm going to give the full BNF grammar for expressions
+in one hit. Take some time and make sure you can
+[grok](https://en.wikipedia.org/wiki/Grok) how the rules work together. I'm going to
+put the highest precedence rules at the top, so you'll have to look down to the
+rules below to see how any specific rule gets invoked.
+
+I'll put some comments in where I think something needs more explanation
+
+```
+   string :=
+          STRLIT
+        | STRLIT string         // Allows "abc" "def"
+
+   primary :=                   // Primary expression, most of
+          IDENT                 // which convert to terminals
+        | INTLIT                // i.e tokens
+        | string
+        | ARGC
+        | ( expr )              // Note parentheses have highest priority
+
+   postfix :=                   // Postfix operators
+          primary
+        | postfix [ expr ]
+        | postfix ( )
+        | postfix ( fnargs )
+        | postfix ++
+        | postfix --
+        | postfix . identifier
+        | postfix -> identifier
+
+   type :=
+          INT
+        | CHAR
+        | VOID
+        | STRUCT IDENT
+        | UNION IDENT
+
+   prefix :=                    // Prefix and unary operators
+          postfix
+        | ++ prefix
+        | -- prefix
+        | & cast
+        | * cast
+        | + cast
+        | - cast
+        | ~ cast
+        | ! cast
+        | SIZEOF ( type )
+        | SIZEOF ( type * )
+        | SIZEOF ( type * * )
+        | SIZEOF ( IDENT )
+
+   cast :=                      // Cast operators
+          prefix
+        | ( type ) prefix
+        | ( type * ) prefix
+        | ( type * * ) prefix
+        | ( INT ( * ) ( ) ) prefix
+
+   term :=                      // Multiply, divide, mod operators
+          cast
+        | term * cast
+        | term / cast
+        | term % cast
+  
+   sum :=                       // Plus, minus operators
+          term
+        | sum + term
+        | sum - term
+  
+   shift :=                     // Shift operators
+          sum
+        | shift << sum
+        | shift >> sum
+  
+   relation :=                  // Comparison operators
+          shift
+        | relation < shift
+        | relation > shift
+        | relation <= shift
+        | relation >= shift
+  
+   equation :=                  // Equality operators
+          relation
+        | equation == relation
+        | equation != relation
+  
+   binand :=                    // Bitwise operators: & | ^
+          equation
+        | binand & equation
+
+   binxor :=
+          binand
+        | binxor ^ binand
+  
+   binor :=
+          binxor
+        | binor '|' binxor
+  
+   binexpr :=
+          binor
+
+   logand :=                    // Logical operators: && ||
+          binexpr
+        | logand && binexpr
+  
+   logor :=
+          logand
+        | logor '||' logand
+
+   condexpr :=                  // Ternary operator ? :
+          logor
+        | logor ? expr : condexpr
+
+   asgmnt :=                    // Assignments
+          condexpr
+        | condexpr = asgmnt
+        | condexpr *= asgmnt
+        | condexpr /= asgmnt
+        | condexpr %= asgmnt
+        | condexpr += asgmnt
+        | condexpr -= asgmnt
+        | condexpr <<= asgmnt
+        | condexpr >>= asgmnt
+        | condexpr &= asgmnt
+        | condexpr ^= asgmnt
+        | condexpr |= asgmnt
+
+   expr :=                      // An expression or
+          asgmnt                // a list of comma-separated expressions
+        | asgmnt , expr
+
+   fnargs :=                    // Function arguments
+          asgmnt
+        | asgmnt , fnargs
+```
+
+The *fnargs* rule is invoked in a different parsing context that the *expr* rule,
+even though they match exactly the same grammar. We will perform different code
+generation for each one.
