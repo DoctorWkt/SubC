@@ -123,6 +123,7 @@ x=y 2 1023	// OP_ASSIGN
 ```
 
 <hr>
+
 ```
   int a;
   a= a + 2;
@@ -136,6 +137,7 @@ x=y 2 1023
 ```
 
 <hr>
+
 ```
   int a;
   int *b;
@@ -149,6 +151,7 @@ x=y 2 1023	// Assign sub-tree value to a
 ```
 
 <hr>
+
 ```
   int a, b;
   if (a == b)
@@ -178,6 +181,7 @@ x==y			// Compare sub-trees (OP_EQUAL)
 ```
 
 <hr>
+
 ```
 void main()
 {
@@ -200,6 +204,7 @@ x=y 2 1023		// Assign to a
 ```
 
 <hr>
+
 ```
   int a,b;
   int list[4];
