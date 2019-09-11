@@ -29,8 +29,8 @@ The topics that I will cover are:
  + [Parsing of Statements](4_Statement_Parsing.md)
  + [The Symbol Table](5_Symbol_Table.md)
  + Parsing of Declarations
- + Parsing of Expressions
- + Use of Abstract Symbol Trees
+ + [Abstract Syntax Trees](7_Abstract_Syntax_Trees.md)
+ + [Parsing of Expressions](8_Expression_Parsing.md)
  + General Optimisation
  + General Code Generation
  + The x64 Code Generator
