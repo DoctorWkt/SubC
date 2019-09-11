@@ -106,7 +106,7 @@ Any parser must enforce these precedence levels. We certainly want to calculate:
         3 + 2 * 6  => not 30
 ```
 
-Even though the parser will recognise the '+' token before the '*' token, then '*'
+Even though the parser will recognise the '+' token before the '\*' token, the '\*'
 token has to be performed first.
 
 In tools that take a grammar and generate code to recognise it (e.g.
@@ -139,7 +139,7 @@ another *cast*.
 
 Therefore, when we try to parse `3 + 2 * 6`, we can parse up to `3 +`, but then we
 are forced down into the `term` rule where we will parse `2 * 6`. This forces the
-`2 * 6` to be evaluated before the `3 +`. Thus, the '*' operator will get higher
+`2 * 6` to be evaluated before the `3 +`. Thus, the '\*' operator will get higher
 precedence than the '+' operator.
 
 ## The Full SubC Expression BNF Rules
