@@ -338,7 +338,8 @@ Remember, assignment statements are also expressions in the C language.
                2
 ```
 
-And when we run `scc -T -t` on this input file, we get:
+And when we run `scc -T -t` on this input file, it draws the same tree
+slightly differently:
 
 
 ```
@@ -354,3 +355,121 @@ x=y 2 1023
 ```
 
 Now, where would be be without recursion?!
+
+I'm going to cover the parsing of expressions and AST building
+in the next part of the tour. The part after that will cover
+the traversing of the ASTs and the generation of generic assembly output.
+
+## The Functions in [src/tree.c](src/tree.c)
+
+Now that we've seen what the AST nodes look like, and how an AST is built, let's
+look at the functions in [src/tree.c](src/tree.c) that are used to build and
+maintain each AST.
+
+There is a low-level function with this prototype:
+
+```
+// Create a new AST node and add it to the Nodes[] storage area.
+// args points at the arguments in the node. na is the number of
+// argument pointers.
+// Return a pointer to the node.
+static node *mknode(int op, int na, int *args, node *left, node *right);
+```
+
+I'm not going to show the code because it's not pretty. Rather than using
+dynamic memory allocation (`malloc()` and friend), SubC allocates this from
+a pool of memory called `Nodes[]`:
+
+```
+#define NODEPOOLSZ	4096	/* ints */
+extern int     Nodes[NODEPOOLSZ];
+extern int     Ndtop;
+extern int     Ndmax;
+```
+
+The code creates an AST node, copies the left/right pointers and the arguments,
+and sets the node's operation to `op`.
+
+## More Specific Node Creation Functions
+
+There are some functions which make specific node types:
+
+```
+// Make a leaf node with one argument.
+node *mkleaf(int op, int n) {
+        int     a[1];
+
+        a[0] = n;
+        return mknode(op, 1, a, NULL, NULL);
+}
+
+// Make a unary operation node with no arguments & one child.
+node *mkunop(int op, node *left) {
+        return mknode(op, 0, NULL, left, NULL);
+}
+
+// Make a unary operation node with one argument & one child.
+node *mkunop1(int op, int n, node *left) {
+        int     a[1];
+
+        a[0] = n;
+        return mknode(op, 1, a, left, NULL);
+}
+
+// Make a unary operation node with two arguments & one child.
+node *mkunop2(int op, int n1, int n2, node *left) {
+        int     a[2];
+
+        a[0] = n1;
+        a[1] = n2;
+        return mknode(op, 2, a, left, NULL);
+}
+
+// Make a binary operation node with no arguments.
+node *mkbinop(int op, node *left, node *right) {
+        return mknode(op, 0, NULL, left, right);
+}
+
+// Make a binary operation node with one argument.
+node *mkbinop1(int op, int n, node *left, node *right) {
+        int     a[1];
+
+        a[0] = n;
+        return mknode(op, 1, a, left, right);
+}
+
+// Make a binary operation node with two arguments.
+node *mkbinop2(int op, int n1, int n2, node *left, node *right) {
+        int     a[2];
+
+        a[0] = n1;
+        a[1] = n2;
+        return mknode(op, 2, a, left, right);
+}
+```
+
+## Tree Dumping Functions
+
+SubC can dump the contents of the expression trees in text form. There is a
+high-level function called `dumptree()` which receives a pointer to the root
+of the tree, and which traverses and dumps the entire tree. It relies on
+several helper functions to print out unary, binary and leaf nodes.
+
+The code is straight-forward, but you look at the functions to see how an
+AST is traversed in general:
+
+  + Deal with any left-hand child
+  + Deal with any right-hand child
+  + Deal with the operation between them
+
+The only difference is, for printing reasons, the operation is printed first.
+
+## Functions that Traverse and Generate Code
+
+At the end of [src/tree.c](src/tree.c) there are several `emitXXX()` functions
+which take an expression tree, traverse it and call functions in the generic
+code generator to *emit* generic assembly output for the expression.
+
+As the tree traversal and the code generation are intertwined, and you've already
+learned enough about ASTs here, I'll delay the coverage of the `emitXXX()` functions
+until the part of the tour on generic code generation.
