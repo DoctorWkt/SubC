@@ -170,6 +170,10 @@ int typematch(int p1, int p2) {
  *	| asgmnt , fnargs
  */
 
+// Parse the arguments for a function whose name
+// is in the symbol table at position fn.
+// Return the number of arguments in na and
+// a sub-tree pointer as the return value.
 static node *fnargs(int fn, int *na) {
 	struct lvalue lv;
 	int	*types;
@@ -177,16 +181,31 @@ static node *fnargs(int fn, int *na) {
 	int	sgn[MAXFNARGS+1];
 	node	*n = NULL, *n2;
 
+	// Get the list of types for each argument
+	// if known, otherwise set empty for now
 	types = (int *) (fn? Mtext[fn]: NULL);
+
+	// Start with zero arguments, parse until a ')'
 	*na = 0;
 	while (RPAREN != Token) {
+		// Parse the argument expression and
+		// convert it into an rvalue. Join
+		// the sequence of argument AST nodes
+		// together with OP_GLUE nodes.
 		n2 = asgmnt(&lv);
 		n2 = rvalue(n2, &lv);
 		n = mkbinop(OP_GLUE, n, n2);
+
+		// SubC doesn't allow struct/union arguments.
+		// Convert to a pointer to the struct/union.
 		if (comptype(lv.prim)) {
 			error("struct/union passed by value", NULL);
 			lv.prim = pointerto(lv.prim);
 		}
+
+		// For this argument, check its type against
+		// the type value from the function signature
+		// i.e. the types pointer. Error if don't match.
 		if (types && *types) {
 			if (!typematch(*types, lv.prim)) {
 				sprintf(msg, "wrong type in argument %d"
@@ -194,10 +213,16 @@ static node *fnargs(int fn, int *na) {
 					*na+1);
 				error(msg, Names[fn]);
 			}
+			// Move up to type of next argument
 			types++;
 		}
+
+		// In case the function doesn't have a prototype,
+		// build our own list of types for each argument in sgn[]
 		if (*na < MAXFNARGS) sgn[*na] = lv.prim, sgn[*na+1] = 0;
 		(*na)++;
+		// Scan the comma after the argument, but it's a syntax
+		// error if we get a ')' after the comma
 		if (COMMA == Token) {
 			Token = scan();
 			if (RPAREN == Token)
@@ -214,6 +239,9 @@ static node *fnargs(int fn, int *na) {
 	return n;
 }
 
+// Given a primitive type p, return
+// the type which is a pointer to p,
+// or -1 if no pointer can be formed
 int deref(int p) {
 	int	y;
 
@@ -236,12 +264,21 @@ int deref(int p) {
 	return -1;
 }
 
+// Given an AST node n, return an rvalue node
+// which points at this node. Also set lv
+// to reflect the type of this pointer
 static node *indirection(node *n, struct lvalue *lv) {
 	int	p;
 
+	// Convert any lvalue to a value
 	n = rvalue(n, lv);
+
+	// Prevent void pointer dereferences
 	if (VOIDPTR == lv->prim)
 		error("dereferencing void pointer", NULL);
+
+	// If a pointer to the primitive type cannot be formed,
+	// it's an error
 	if ((p = deref(lv->prim)) < 0) {
 		if (lv->sym)
 			error("indirection through non-pointer: %s",
@@ -250,11 +287,16 @@ static node *indirection(node *n, struct lvalue *lv) {
 			error("indirection through non-pointer", NULL);
 		p = lv->prim;
 	}
+
+	// Otherwise set the dereferenced type with no lvalue symbol.
+	// XXX: is it safe to leave addr unchanged, why not set to 0?
 	lv->prim = p;
 	lv->sym = 0;
 	return n;
 }
 
+// Generic function to print an error
+// message for a bad function call.
 static void badcall(struct lvalue *lv) {
 	if (lv->sym)
 		error("call of non-function: %s",
@@ -263,36 +305,61 @@ static void badcall(struct lvalue *lv) {
 		error("call of non-function", NULL);
 }
 
+// Return true if the number of arguments to
+// a function is OK. Either match the prototype,
+// or XXX I'm not sure!
 static int argsok(int na, int nf) {
 	return na == nf || (nf < 0 && na >= -nf-1);
 }
 
+// Given an AST node n which is a struct/union, the type
+// of this struct/union in lv, and if the access is a pointer
+// (->) or non-pointer access (.) in ptr, return an AST
+// node which gives access to the member that has just been scanned it.
 static node *stc_access(node *n, struct lvalue *lv, int ptr) {
 	int	y, p;
 	node	*n2;
 
+	// Back up the AST node in case we have to return it.
+	// Get the type of struct/union this is. It has an address.
 	n2 = n;
 	p = lv->prim & STCMASK;
 	lv->addr = 1;
+
+	// If the last token isn't an identifier, we can't parse this.
 	if (IDENT != Token) {
 		Token = scan();
 		error("struct/union member name expected after '%s'",
 			ptr? "->": ".");
 		return NULL;
 	}
+
+	// Find the member field in the struct/union.
+	// Error if it doesn't exist
 	y = findmem(lv->prim & ~STCMASK, Text);
 	if (0 == y)
 		error("struct/union has no such member: %s", Text);
+
+	// If we have the offset of the member, build an OP_ADD
+	// node with the OP_LIT value as its child.
 	if ((PSTRUCT == p || STCPTR == p) && Vals[y]) {
 		n2 = mkleaf(OP_LIT, Vals[y]);
 		n2 = mkbinop(OP_ADD, n, n2);
 	}
+	
+	// Read in the next token
 	Token = scan();
+
+	// Get the member's primitive type. If it's an array,
+	// get a pointer to the base of the array.
 	p = Prims[y];
 	if (TARRAY == Types[y]) {
 		p = pointerto(p);
 		lv->addr = 0;
 	}
+
+	// Update the expression's primitive type and
+	// return the new tree that we constructed
 	lv->prim = p;
 	return n2;
 }
