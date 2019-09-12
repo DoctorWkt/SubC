@@ -102,12 +102,12 @@ static node *primary(struct lvalue *lv) {
 			return n;
 		}
 
-		// If it's a struct or union,
-		// make an OP_ADDR node to the struct/union
+		// If it's a struct or union, make an
+		// OP_ADDR node to the struct/union member
 		if (comptype(Prims[y])) {
 			n = mkleaf(OP_ADDR, y);
-			lv->sym = 0;	// XXX: Why this?
-			return n;
+			lv->sym = 0;	// But not to the original
+			return n;	// struct/union member
 		}
 
 		// An ordinary scalar variable, so make an IDENT node

@@ -1,5 +1,35 @@
 # Expression Parsing
 
+In this part of the tour we will see how SubC parses expressions, and builds up an
+abstract syntax tree for each expression.
+
+We've already seen parsing in action with statements and declarations, so I'm not
+going to dwell on the parsing side in this part. We've also seen the functions
+used to build and join the nodes in the abstract syntax trees, so I'll refer to
+these as we go.
+
+What is most important in this part is how SubC tracks and spots *semantic errors*,
+where an expression is permitted by the grammar but doesn't make any practical
+sense.
+
+Examples are when we try to mix incompatible types:
+
+```
+   char x= 6000 * 12;	// Int value too big to fit into char type
+
+   struct foo {
+      int a, b;
+   } fred = 12;		// Can't assign int to a struct
+
+   if (fred) {		// Can't use fred as a boolean expression
+     ...
+   }
+```
+
+At the same time, we do need to permit things like automatic *casting* where types
+are widened, e.g. from a `char` size to an `int size`. To do this, SubC needs to track
+the type and other characteristics of each expression.
+
 ## Concepts and Data Structures
 
 In Computer Science parlance, an *expression* is something that is or calculates a value.
@@ -42,7 +72,8 @@ reasons:
     token.
 
 For this reason, SubC assumes that any expression is both an lvalue and an rvalue
-until such times as it can be confirmed to be an lvalue.
+until such times as it can be confirmed to be an lvalue. The type and "lvalue"-ness
+of each expression is kept in an `lvalue` structure.
 
 I've taken the liberty of changing the `lvalue` structure in SubC from an array of
 three `int`s into a proper structure (in [src/defs.h](src/defs.h)) because the use
@@ -66,11 +97,16 @@ It might be worth putting in a table to clarify the use of `sym` and `addr`.
 | sym | addr | Meaning | Example |
 |:---:|:----:|:-------:|---------|
 |  0  |  0   | Calculated value | 2 + 3 |
-| !0  |  0   | Symbol  |   a  |
+| !0  |  0   | Symbol  |   a++  |
 | !0  |  1   | Symbol  |   a  |
 |  0  |  1   | Interesting! | see below |
 
-The last line in the table is intruiging. How can a lvalue or rvalue have an
+Two lines in this table are interesting. In the second line, we have a symbol but
+no value. How can this be? An example is the expression `a++` which definitely refers
+to the `a` variable, but we need the result (`a+1`) before `a` has been updated. So
+it will have to be in a register and not in `a` itself.
+
+The last line in the table is also interesting. How can a lvalue or rvalue have an
 address that isn't associated with a symbol? The answer is when we have dereferenced
 the symbol. Here's an example:
 
@@ -82,7 +118,6 @@ the symbol. Here's an example:
   int fred[5];
     fred[2]=4;
     printf("%d\n", fred[2]);
-    printf("%d\n", ++fred[2]);
     return(0);
   }
 ```
@@ -92,8 +127,8 @@ When we get to the assignment `fred[2]=4`, `fred` is the name of the array but
 symbol `fred`. So this is a definitely an assignment to an lvalue (which has an
 address), but that address isn't associated with a symbol.
 
-**XXX: Also intruiging is the second line. Explain how an lvalue can have a symbol
-but no address.**
+We will come back to the tracking of lvalues and rvalues below. But next, a look
+at the grammar of expressions in SubC.
 
 ## Expression BNF Rules and Operator Precedence
 
@@ -116,7 +151,7 @@ tokens priority over other tokens.
 
 Another way to enforce token priority is to write the BNF rules of the grammar
 so that we are forced to descend into a non-terminal rule when there are tokens
-with a higher prioriy than the ones we are dealing with.
+with a higher priority than the ones we are dealing with.
 
 As an example, here are some of the BNF rules from SubC:
 
@@ -285,3 +320,173 @@ I'll put some comments in where I think something needs more explanation
 The *fnargs* rule is invoked in a different parsing context that the *expr* rule,
 even though they match exactly the same grammar. We will perform different code
 generation for each one.
+
+## Looking at the SubC Expression Parsing Code
+
+As mentioned before, I'm not going to dwell on the parsing or the symbol table side of
+things. By now, you should be able to read the code and work out what is happening here:
+
+```
+                y = findsym(Text);
+                copyname(name, Text);
+                Token = scan();
+```
+
+What is more important is:
+
+  + how the lvalue and rvalues are tracked for semantic analysis
+  + how the expression ASTs are constructed
+
+So I won't be pasting in whole sections of code, but instead looking at the
+the code which does the above two points.
+
+## `rvalue()`: Get the Value From a Symbol
+
+We start with `rvalue()`. This is used to extract a value from something, and typically
+ends up being converted into a load instruction assembly.
+
+If the input node `n` is already an rvalue (as it has no address), then return that node.
+Otherwise add an OP_RVAL node with `n` as the child to generate the load instruction
+later on.
+
+```
+// Convert an lvalue AST node into an rvalue node. If this really is an
+// lvalue, generate an OP_RVAL AST node to get the symbol's value which
+// is of type prim. Otherwise, just return this node as an rvalue.
+static node *rvalue(node *n, struct lvalue *lv) {
+        if (lv->addr) {
+                lv->addr = 0;
+                return mkunop2(OP_RVAL, lv->prim, lv->sym, n);
+        }
+        else {
+                return n;
+        }
+}
+```
+
+## `primary()`: Parse a Primary Expression
+
+```
+/*
+ * primary :=
+ *        IDENT
+ *      | INTLIT
+ *      | string
+ *      | ARGC
+ *      | ( expr )
+ *
+ * string :=
+ *        STRLIT
+ *      | STRLIT string
+ */
+
+// Given an lvalue node, parse a primary factor and return an
+// AST node representing it.
+static node *primary(struct lvalue *lv);
+```
+
+This is where we parse most of the expression non-terminals in the grammar and
+build an AST node for them. The relevant code is:
+
+```
+static node *primary(struct lvalue *lv) {
+        node    *n = NULL;
+        int     y, lab, k;
+
+        // Start with it empty
+        lv->prim = lv->sym = lv->addr = 0;
+
+        switch (Token) {
+        case IDENT:
+                // Find the identifier in the symbol table,
+                // then copy it so we can scan the next token
+		y = findsym(Text);
+
+                // No symbol found. If the next token is a '(',
+                // assume this is a function declaration. Add
+                // it as an extern int function to the symbol table.
+                // Otherwise, it's an undeclared variable. It's still
+                // added to the symbol table as an auto int, to reduce
+                // the number of further errors when the variable is used.
+                if (!y) { ... }
+
+                // Save the symbol and primary type of the symbol
+                lv->sym = y;
+                lv->prim = Prims[y];
+
+                // If the next token isn't a '(', it's a function
+                // pointer, so make a function pointer node
+                // for the given symbol
+                if (TFUNCTION == Types[y]) {
+                        if (LPAREN != Token) {
+                                lv->prim = FUNPTR;
+                                n = mkleaf(OP_ADDR, y);
+                        }
+                        return n;
+                }
+
+                // Constant: make an OP_LIT node with the value
+                if (TCONSTANT == Types[y]) {
+                        return mkleaf(OP_LIT, Vals[y]);
+                }
+
+                // Array: make an OP_ADDR node with the
+                // type being a pointer to the array's primitive type
+                if (TARRAY == Types[y]) {
+                        n = mkleaf(OP_ADDR, y);
+                        lv->prim = pointerto(lv->prim);
+                        return n;
+                }
+
+                // If it's a struct or union, make an
+                // OP_ADDR node to the struct/union member
+                if (comptype(Prims[y])) {
+                        n = mkleaf(OP_ADDR, y);
+                        lv->sym = 0;    // But not to the original
+                        return n;	// struct/union itself
+                }
+
+                // An ordinary scalar variable, so make an IDENT node
+                // for the symbol, and mark it as a true lvalue
+                n = mkleaf(OP_IDENT, y);
+                lv->addr = 1;
+                return n;
+        case INTLIT:
+                // Literal integer, make an OP_LIT node with the value
+                // and an int primary type. Move up to the next token.
+                n = mkleaf(OP_LIT, Value);
+                lv->prim = PINT;
+                return n;
+        case STRLIT:
+                k = 0;
+                while (STRLIT == Token) { ... } // Allow successive "x" "y"
+                n = mkleaf(OP_LDLAB, lab);      // Node refers to the label
+                lv->prim = CHARPTR;             // and is a char pointer
+                                                // Not marked as addr=1
+                                                // as the string is mutable
+                return n;
+        case LPAREN:
+                n = exprlist(lv, 0);            // Parse the expression list
+                return n;                       // and return the node
+        default:
+                // It's a syntax error, skip tokens up to the next semicolon
+                error("syntax error at: %s", Text);
+                Token = synch(SEMI);
+                return NULL;
+        }
+}
+```
+
+I've left the use of `synch(SEMI)` in at the end to show you how we can minimise
+the avalanche of likely error reporting once we hit a syntax error. Here, we will
+just skip everything up to the next semicolon and resume parsing there.
+
+Note that most of the cases produce a leaf node in the AST with `mkleaf()` which
+returns a pointer to the new node. `primary()` itself receives a pointer to an
+*lvalue* struct, so it can return the type of the expression in the AST tree that
+it returns.
+
+> One question I haven't resolved at this point: could the *lvalue* struct and
+  the AST node struct be merged? Are there any places where they need to be
+  separate? If not, a merge would make sense and minimise the number of arguments
+  to many functions.

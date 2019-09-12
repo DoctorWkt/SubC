@@ -109,113 +109,6 @@ OP_SUB          | Binary        | 0, 1, 2       | Subtract two sub-trees |
 
 XXX Comments here on the arguments, what they can represent
 
-## Example ASTs
-
-SubC can output the ASTs of the expressions it parses with the `-T` command-line flag. Here are some
-example expressions and the generated ASTs as printed by SubC.
-
-```
-  int a;
-  a=2;          // Assign a with value
-
-x=y 2 1023      // OP_ASSIGN
-  `-id a        // OP_IDENT
-  `-lit 2       // OP_LIT
-```
-
-<hr>
-
-```
-  int a;
-  a= a + 2;
-
-x=y 2 1023
-  `-id a
-  `-x+y 2 2     // OP_PLUS
-    `- *x 2 a   // Get value from a (OP_ADDR)
-    | `-id a
-    `-lit 2
-```
-
-<hr>
-
-```
-  int a;
-  int *b;
-  a= *b;
-
-x=y 2 1023      // Assign sub-tree value to a
-  `-id a
-  `- *x 2       // Dereference the ptr value (OP_ADDR)
-    `- *x 4 b   // Get ptr value from b (OP_ADDR)
-      `-id b
-```
-
-<hr>
-
-```
-  int a, b;
-  if (a == b)
-    printf("Hello world\n");
-
-x==y                    // Compare sub-trees (OP_EQUAL)
-  `- *x 2 a             // Value at a
-  | `-id a
-  `- *x 2 b             // Value at b
-    `-id b
-
- printf() 1             // Call function (OP_CALL)
-  `-glue                // OP_GLUE
-    `-ldlab L4          // with value at L4 (OP_LDLAB)
-```
-
-<hr>
-
-```
-  int a, b;
-  a= (b > 2) ? b++ : --b;
-
-x=y 2 1023              // Assign to a
-  `-id a
-  `-?: 3                // result of ternary operation (OP_IFELSE)
-    `-glue
-      `-jump/false 2    // Jump if expression false (OP_BRFALSE)
-      | `-x>y           // a > comparison between (OP_GREATER)
-      | | `- *x 2 b     // b's value and literal 2
-      | | | `-id b
-      | | `-lit 2
-      | `-x++ 2 1022    // b++'s value (OP_POSTINC)
-      |   `-id b
-      `---x 2 1022      // --b's value (OP_PREDEC)
-        `-id b
-```
-
-<hr>
-
-```
-  int a,b;
-  int list[4];
-  a= list[2];
-  a= list[b];
-
-x=y 2 1023              // Assign to a
-  `-id a
-  `- *x 2               // the value at
-    `-x+y (int,int)     // (OP_ADD, not OP_PLUS)
-      `-addr list       // address of list (OP_ADDR)
-      `-scale           // (OP_SCALE)
-        `-lit 2         // plus 2
-
-x=y 2 1023              // Assign to a
-  `-id a
-  `- *x 2               // the value at
-    `-x+y (int,int)     // (OP_ADD)
-      `-addr list       // address of list (OP_ADDR)
-      `-scale           // (OP_SCALEBY)
-        `- *x 2 b       // plus value at b
-          `-id b
-```
-
 ## Building the Tree, Traversing the Tree
 
 Each AST tree represents an expression from the input C files. The functions
@@ -354,11 +247,112 @@ x=y 2 1023
     `-lit 9
 ```
 
-Now, where would be be without recursion?!
+## Example ASTs
 
-I'm going to cover the parsing of expressions and AST building
-in the next part of the tour. The part after that will cover
-the traversing of the ASTs and the generation of generic assembly output.
+SubC can output the ASTs of the expressions it parses with the `-T` command-line flag.
+Here are some example expressions and the generated ASTs as printed by SubC.
+
+```
+  int a;
+  a=2;          // Assign a with value
+
+x=y 2 1023      // OP_ASSIGN
+  `-id a        // OP_IDENT
+  `-lit 2       // OP_LIT
+```
+
+<hr>
+
+```
+  int a;
+  a= a + 2;
+
+x=y 2 1023
+  `-id a
+  `-x+y 2 2     // OP_PLUS
+    `- *x 2 a   // Get value from a (OP_ADDR)
+    | `-id a
+    `-lit 2
+```
+
+<hr>
+
+```
+  int a;
+  int *b;
+  a= *b;
+
+x=y 2 1023      // Assign sub-tree value to a
+  `-id a
+  `- *x 2       // Dereference the ptr value (OP_ADDR)
+    `- *x 4 b   // Get ptr value from b (OP_ADDR)
+      `-id b
+```
+
+<hr>
+
+```
+  int a, b;
+  if (a == b)
+    printf("Hello world\n");
+
+x==y                    // Compare sub-trees (OP_EQUAL)
+  `- *x 2 a             // Value at a
+  | `-id a
+  `- *x 2 b             // Value at b
+    `-id b
+
+ printf() 1             // Call function (OP_CALL)
+  `-glue                // OP_GLUE
+    `-ldlab L4          // with value at L4 (OP_LDLAB)
+```
+
+<hr>
+
+```
+  int a, b;
+  a= (b > 2) ? b++ : --b;
+
+x=y 2 1023              // Assign to a
+  `-id a
+  `-?: 3                // result of ternary operation (OP_IFELSE)
+    `-glue
+      `-jump/false 2    // Jump if expression false (OP_BRFALSE)
+      | `-x>y           // a > comparison between (OP_GREATER)
+      | | `- *x 2 b     // b's value and literal 2
+      | | | `-id b
+      | | `-lit 2
+      | `-x++ 2 1022    // b++'s value (OP_POSTINC)
+      |   `-id b
+      `---x 2 1022      // --b's value (OP_PREDEC)
+        `-id b
+```
+
+<hr>
+
+```
+  int a,b;
+  int list[4];
+  a= list[2];
+  a= list[b];
+
+x=y 2 1023              // Assign to a
+  `-id a
+  `- *x 2               // the value at
+    `-x+y (int,int)     // (OP_ADD, not OP_PLUS)
+      `-addr list       // address of list (OP_ADDR)
+      `-scale           // (OP_SCALE)
+        `-lit 2         // plus 2
+
+x=y 2 1023              // Assign to a
+  `-id a
+  `- *x 2               // the value at
+    `-x+y (int,int)     // (OP_ADD)
+      `-addr list       // address of list (OP_ADDR)
+      `-scale           // (OP_SCALEBY)
+        `- *x 2 b       // plus value at b
+          `-id b
+```
 
 ## The Functions in [src/tree.c](src/tree.c)
 
