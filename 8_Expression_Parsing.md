@@ -127,6 +127,43 @@ When we get to the assignment `fred[2]=4`, `fred` is the name of the array but
 symbol `fred`. So this is a definitely an assignment to an lvalue (which has an
 address), but that address isn't associated with a symbol.
 
+### Passing Lvalue Structures
+
+At any point in the parsing, an AST tree which we have built has a single lvalue
+structure. The type may change as we parse, but the root of the tree has a final
+lvalue/rvalue.
+
+SubC deals with this by creating a `struct lvalue lv` local variable in only a
+few places. A pointer to this get passed down the recursive function call hierarchy.
+At some point, a terminal (e.g. symbol or literal integer value) is found, the
+initial primitive type is set, and the function returns. As the AST is built up,
+the pointer to the original `struct lvalue lv` is used to update the lvalue.
+Eventually this bubbles back up the call chain.
+
+The functions in [src/expr.c](src/expr.c) that create a top-level `struct lvalue lv` are:
+
+ + `fnargs()`: Each argument to a function is a separate expression, and
+    we need to compare them against the function's prototype.
+ + `postfix()` needs to deal with indexes into arrays, which are expressions
+    that return a type. We need to check that this type is integer.
+ + `comp_size()` calculates the size of an expression's type.
+ + `binexpr()` is given the AST tree for the left-hand expression. We need to
+    parse the right-hand expression, so we need a `struct lvalue lv2` for its type.
+    `cond2()` and `cond3()` also have to parse a right-hand expression.
+ + `asgmnt()` has an lvalue on the left-hand of the assignment operator (given to it)
+    and must parse a right-hand expression.
+ + `constexpr()` has to parse what should end up being a constant expression.
+ + `rexpr()` is pretty much the top-level of parsing a single expression, so
+    it has a `struct lvalue lv` to collect the expression's type.
+
+Functions in other SubC source files also supply `struct lvalue lv` variables are:
+ + `return_stmt()` in [src/stmt.c](src/stmt.c) checks that the returned
+    expression's type matches the function's prototype.
+ + Several functions in [src/stmt.c](src/stmt.c) repackage some of the arguments
+   from an AST node into `struct lvalue` so they can be passed to the code
+   generator functions. This really could be changed to passing two int arguments
+   to the code generator functions instead of a `struct lvalue` pointer.
+
 We will come back to the tracking of lvalues and rvalues below. But next, a look
 at the grammar of expressions in SubC.
 
@@ -485,8 +522,3 @@ Note that most of the cases produce a leaf node in the AST with `mkleaf()` which
 returns a pointer to the new node. `primary()` itself receives a pointer to an
 *lvalue* struct, so it can return the type of the expression in the AST tree that
 it returns.
-
-> One question I haven't resolved at this point: could the *lvalue* struct and
-  the AST node struct be merged? Are there any places where they need to be
-  separate? If not, a merge would make sense and minimise the number of arguments
-  to many functions.
