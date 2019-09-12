@@ -33,13 +33,7 @@ extern_ int	Ndtop;
 extern_ int	Ndmax;
 
 /* symbol table structure */
-extern_ char	*Names[NSYMBOLS];	// Name of a symbol
-extern_ int	Prims[NSYMBOLS];	// Primitive type of a symbol
-extern_ char	Types[NSYMBOLS];	// Meta type of a symbol
-extern_ char	Stcls[NSYMBOLS];	// Storage class of a symbol
-extern_ int	Sizes[NSYMBOLS];	// Number of elements in the symbol
-extern_ int	Vals[NSYMBOLS];		// Initial value of the symbol
-extern_ char	*Mtext[NSYMBOLS];	// The definition of a macro
+extern_ struct symtable Syms[NSYMBOLS];
 extern_ int	Globs;			// Pointer to next empty global slot
 extern_ int	Locs;			// Pointer to next empty local slot
 

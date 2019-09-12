@@ -17,8 +17,8 @@ int findglob(char *s) {
 	for (i=0; i<Globs; i++) {
 		// It must not be a macro, not a struct member.
 		// Match on the first char to speed up the strcmp()
-		if (	Types[i] != TMACRO && Stcls[i] != CMEMBER &&
-			*s == *Names[i] && !strcmp(s, Names[i])
+		if (	Syms[i].type != TMACRO && Syms[i].stcls != CMEMBER &&
+			*s == *Syms[i].name && !strcmp(s, Syms[i].name)
 		)
 			return i;
 	}
@@ -34,8 +34,8 @@ int findloc(char *s) {
 	for (i=Locs; i<NSYMBOLS; i++) {
 		// It must not be a struct member.
 		// Match on the first char to speed up the strcmp()
-		if (	Stcls[i] != CMEMBER &&
-			*s == *Names[i] && !strcmp(s, Names[i])
+		if (	Syms[i].stcls != CMEMBER &&
+			*s == *Syms[i].name && !strcmp(s, Syms[i].name)
 		)
 			return i;
 	}
@@ -57,8 +57,8 @@ int findmac(char *s) {
 	int	i;
 
 	for (i=0; i<Globs; i++)
-		if (	TMACRO == Types[i] &&
-			*s == *Names[i] && !strcmp(s, Names[i])
+		if (	TMACRO == Syms[i].type &&
+			*s == *Syms[i].name && !strcmp(s, Syms[i].name)
 		)
 			return i;
 	return 0;
@@ -71,13 +71,13 @@ int findstruct(char *s) {
 	int	i;
 
 	for (i=Locs; i<NSYMBOLS; i++)
-		if (	TSTRUCT == Types[i] &&
-			*s == *Names[i] && !strcmp(s, Names[i])
+		if (	TSTRUCT == Syms[i].type &&
+			*s == *Syms[i].name && !strcmp(s, Syms[i].name)
 		)
 			return i;
 	for (i=0; i<Globs; i++)
-		if (	TSTRUCT == Types[i] &&
-			*s == *Names[i] && !strcmp(s, Names[i])
+		if (	TSTRUCT == Syms[i].type &&
+			*s == *Syms[i].name && !strcmp(s, Syms[i].name)
 		)
 			return i;
 	return 0;
@@ -91,9 +91,9 @@ int findmem(int y, char *s) {
 	// following the y slot
 	while (	(y < Globs ||
 		 (y >= Locs && y < NSYMBOLS)) &&
-		CMEMBER ==  Stcls[y]
+		CMEMBER ==  Syms[y].stcls
 	) {
-		if (*s == *Names[y] && !strcmp(s, Names[y]))
+		if (*s == *Syms[y].name && !strcmp(s, Syms[y].name))
 			return y;
 		y++;
 	}
@@ -305,22 +305,22 @@ int addglob(char *name, int prim, int type, int scls, int size, int val,
 
 		// Redeclare the symbol with a new storage class.
 		// If a function, keep the old function signature.
-		scls = redeclare(name, Stcls[y], scls);
-		if (TFUNCTION == Types[y])
-			mtext = Mtext[y];
+		scls = redeclare(name, Syms[y].stcls, scls);
+		if (TFUNCTION == Syms[y].type)
+			mtext = Syms[y].mtext;
 	}
 
 	// Doesn't exist, so get a new global symbol slot
 	// and copy the symbol name into the symbol table
 	if (0 == y) {
  		y = newglob();
-		Names[y] = globname(name);
+		Syms[y].name = globname(name);
 	}
 
 	// Check that, if this is a redefinition of a function or macro,
 	// that the redefinition has the same type as before
-	else if (TFUNCTION == Types[y] || TMACRO == Types[y]) {
-		if (Prims[y] != prim || Types[y] != type)
+	else if (TFUNCTION == Syms[y].type || TMACRO == Syms[y].type) {
+		if (Syms[y].prim != prim || Syms[y].type != type)
 			error("redefinition does not match prior type: %s",
 				name);
 	}
@@ -332,12 +332,12 @@ int addglob(char *name, int prim, int type, int scls, int size, int val,
 
 	// Copy the values into the symbol table
 	// and return the slot
-	Prims[y] = prim;
-	Types[y] = type;
-	Stcls[y] = scls;
-	Sizes[y] = size;
-	Vals[y] = val;
-	Mtext[y] = mtext;
+	Syms[y].prim = prim;
+	Syms[y].type = type;
+	Syms[y].stcls = scls;
+	Syms[y].size = size;
+	Syms[y].val = val;
+	Syms[y].mtext = mtext;
 	return y;
 }
 
@@ -422,12 +422,12 @@ int addloc(char *name, int prim, int type, int scls, int size, int val,
 
 	// Copy the values into the symbol table
 	// and return the slot
-	Names[y] = locname(name);
-	Prims[y] = prim;
-	Types[y] = type;
-	Stcls[y] = scls;
-	Sizes[y] = size;
-	Vals[y] = val;
+	Syms[y].name = locname(name);
+	Syms[y].prim = prim;
+	Syms[y].type = type;
+	Syms[y].stcls = scls;
+	Syms[y].size = size;
+	Syms[y].val = val;
 	return y;
 }
 
@@ -458,7 +458,7 @@ int objsize(int prim, int type, int size) {
 	else if (UNIPTR == sp || UNIPP == sp)
 		k = PTRSIZE;
 	else if (PSTRUCT == sp || PUNION == sp)
-		k = Sizes[prim & ~STCMASK];
+		k = Syms[prim & ~STCMASK].size;
 	else if (FUNPTR == prim)
 		k = PTRSIZE;
 	if (TFUNCTION == type || TCONSTANT == type || TMACRO == type)
@@ -503,28 +503,28 @@ void dumpsyms(char *title, char *sub, int from, int to) {
 		"------  ----  -----  -----  -----  -----------------\n");
 	for (i = from; i < to; i++) {
 		printf("%-6s  %s  %s  %5d  %5d  %s",
-			typename(Prims[i]),
-			TVARIABLE == Types[i]? "VAR ":
-				TARRAY == Types[i]? "ARRY":
-				TFUNCTION == Types[i]? "FUN ":
-				TCONSTANT == Types[i]? "CNST":
-				TMACRO == Types[i]? "MAC ":
-				TSTRUCT == Types[i]? "STCT": "n/a",
-			CPUBLIC == Stcls[i]? "PUBLC":
-				CEXTERN == Stcls[i]? "EXTRN":
-				CSTATIC == Stcls[i]? "STATC":
-				CSPROTO == Stcls[i]? "STATP":
-				CLSTATC == Stcls[i]? "LSTAT":
-				CAUTO   == Stcls[i]? "AUTO ":
-				CMEMBER == Stcls[i]? "MEMBR": "n/a  ",
-			Sizes[i],
-			Vals[i],
-			Names[i]);
-		if (TMACRO == Types[i])
-			printf(" [\"%s\"]", Mtext[i]);
-		if (TFUNCTION == Types[i]) {
+			typename(Syms[i].prim),
+			TVARIABLE == Syms[i].type? "VAR ":
+				TARRAY == Syms[i].type? "ARRY":
+				TFUNCTION == Syms[i].type? "FUN ":
+				TCONSTANT == Syms[i].type? "CNST":
+				TMACRO == Syms[i].type? "MAC ":
+				TSTRUCT == Syms[i].type? "STCT": "n/a",
+			CPUBLIC == Syms[i].stcls? "PUBLC":
+				CEXTERN == Syms[i].stcls? "EXTRN":
+				CSTATIC == Syms[i].stcls? "STATC":
+				CSPROTO == Syms[i].stcls? "STATP":
+				CLSTATC == Syms[i].stcls? "LSTAT":
+				CAUTO   == Syms[i].stcls? "AUTO ":
+				CMEMBER == Syms[i].stcls? "MEMBR": "n/a  ",
+			Syms[i].size,
+			Syms[i].val,
+			Syms[i].name);
+		if (TMACRO == Syms[i].type)
+			printf(" [\"%s\"]", Syms[i].mtext);
+		if (TFUNCTION == Syms[i].type) {
 			printf(" (");
-			for (p = Mtext[i]; *p; p++) {
+			for (p = Syms[i].mtext; *p; p++) {
 				printf("%s", typename(*p));
 				if (p[1]) printf(", ");
 			}

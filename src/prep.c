@@ -56,7 +56,7 @@ static void defmac(void) {
 	// Error if the macro was already defined.
 	// Otherwise use addglob() to add this as a global macro
 	if ((y = findmac(name)) != 0) {
-		if (strcmp(Mtext[y], buf))
+		if (strcmp(Syms[y].mtext, buf))
 			error("macro redefinition: %s", name);
 	}
 	else {
@@ -80,7 +80,7 @@ static void undef(void) {
 	if (IDENT != Token)
 		error("identifier expected after '#undef': %s", Text);
 	if ((y = findmac(name)) != 0)
-		Names[y] = "#undef'd";
+		Syms[y].name = "#undef'd";
 }
 
 // Do the work to #include another file as input

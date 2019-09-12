@@ -338,9 +338,9 @@ static int macro(char *name) {
 	int	y;
 
 	y = findmac(name);
-	if (!y || Types[y] != TMACRO)
+	if (!y || Syms[y].type != TMACRO)
 		return 0;
-	playmac(Mtext[y]);
+	playmac(Syms[y].mtext);
 	return 1;
 }
 

@@ -46,6 +46,17 @@
 #define POOLSIZE	16384
 #define NODEPOOLSZ	4096	/* ints */
 
+/* symbol table structure */
+struct symtable {
+	char	*name;		// Name of a symbol
+	int     prim;		// Primitive type of a symbol
+	char    type;		// Meta type of a symbol
+	char    stcls;		// Storage class of a symbol
+	int	size;		// Number of elements in the symbol
+	int     val;		// Initial value of the symbol
+	char    *mtext;		// The definition of a macro
+};
+
 /* types */
 enum {
 	TVARIABLE = 1,		// Variable

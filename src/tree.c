@@ -130,7 +130,7 @@ node *mkbinop2(int op, int n1, int n2, node *left, node *right) {
 static void dumpleaf(char *s, node *a) {
 	switch (a->op) {
 		case OP_LIT:  printf("%s %d\n", s, a->args[0]); break;
-		default: printf("%s %s\n", s, Names[ a->args[0] ]);
+		default: printf("%s %s\n", s, Syms[ a->args[0] ].name);
 	}
 }
 
@@ -146,8 +146,8 @@ static void dumpunop1(char *s, node *a) {
 
 static void dumpunop2(char *s, node *a) {
 	switch (a->op) {
-		case OP_RVAL: printf(" %s %d %s\n", s, a->args[0], Names[a->args[1]]); break;
-		case OP_CALL: printf(" %s() %d\n", Names[a->args[0]], a->args[1]); break;
+		case OP_RVAL: printf(" %s %d %s\n", s, a->args[0], Syms[ a->args[1] ].name); break;
+		case OP_CALL: printf(" %s() %d\n", Syms[ a->args[0] ].name, a->args[1]); break;
 		default:      printf("%s %d %d\n", s, a->args[0], a->args[1]);
 	}
 	Level++;

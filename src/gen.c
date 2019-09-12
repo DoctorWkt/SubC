@@ -229,12 +229,12 @@ void queue(int type, int val, char *name) {
 
 void genaddr(int y) {
 	gentext();
-	if (CAUTO == Stcls[y])
-		queue(addr_auto, Vals[y], NULL);
-	else if (CLSTATC == Stcls[y])
-		queue(addr_static, Vals[y], NULL);
+	if (CAUTO == Syms[y].stcls)
+		queue(addr_auto, Syms[y].val, NULL);
+	else if (CLSTATC == Syms[y].stcls)
+		queue(addr_static, Syms[y].val, NULL);
 	else
-		queue(addr_globl, 0, Names[y]);
+		queue(addr_globl, 0, Syms[y].name);
 }
 
 void genldlab(int id) {
@@ -626,7 +626,7 @@ void genbrtrue(int dest) {
 void gencall(int y) {
 	gentext();
 	commit();
-	cgcall(gsym(Names[y]));
+	cgcall(gsym(Syms[y].name));
 	load();
 }
 
@@ -748,23 +748,23 @@ static void genincptr(struct lvalue *lv, int inc, int pre) {
 			else
 				cgdec2pi(size);
 	}
-	else if (CAUTO == Stcls[y]) {
+	else if (CAUTO == Syms[y].stcls) {
 		if (inc)
-			cgincpl(Vals[y], size);
+			cgincpl(Syms[y].val, size);
 		else
-			cgdecpl(Vals[y], size);
+			cgdecpl(Syms[y].val, size);
 	}
-	else if (CLSTATC == Stcls[y]) {
+	else if (CLSTATC == Syms[y].stcls) {
 		if (inc)
-			cgincps(Vals[y], size);
+			cgincps(Syms[y].val, size);
 		else
-			cgdecps(Vals[y], size);
+			cgdecps(Syms[y].val, size);
 	}
 	else {
 		if (inc)
-			cgincpg(gsym(Names[y]), size);
+			cgincpg(gsym(Syms[y].name), size);
 		else
-			cgdecpg(gsym(Names[y]), size);
+			cgdecpg(gsym(Syms[y].name), size);
 	}
 	if (pre) genrval(lv);
 }
@@ -798,25 +798,25 @@ void geninc(struct lvalue *lv, int inc, int pre) {
 			else
 				b? cgdec2ib(): cgdec2iw();
 	}
-	else if (CAUTO == Stcls[y]) {
+	else if (CAUTO == Syms[y].stcls) {
 		if (inc)
-			b? cginclb(Vals[y]): cginclw(Vals[y]);
+			b? cginclb(Syms[y].val): cginclw(Syms[y].val);
 		else
-			b? cgdeclb(Vals[y]): cgdeclw(Vals[y]);
+			b? cgdeclb(Syms[y].val): cgdeclw(Syms[y].val);
 	}
-	else if (CLSTATC == Stcls[y]) {
+	else if (CLSTATC == Syms[y].stcls) {
 		if (inc)
-			b? cgincsb(Vals[y]): cgincsw(Vals[y]);
+			b? cgincsb(Syms[y].val): cgincsw(Syms[y].val);
 		else
-			b? cgdecsb(Vals[y]): cgdecsw(Vals[y]);
+			b? cgdecsb(Syms[y].val): cgdecsw(Syms[y].val);
 	}
 	else {
 		if (inc)
-			b? cgincgb(gsym(Names[y])):
-			   cgincgw(gsym(Names[y]));
+			b? cgincgb(gsym(Syms[y].name)):
+			   cgincgw(gsym(Syms[y].name));
 		else
-			b? cgdecgb(gsym(Names[y])):
-			   cgdecgw(gsym(Names[y]));
+			b? cgdecgb(gsym(Syms[y].name)):
+			   cgdecgw(gsym(Syms[y].name));
 	}
 	if (pre) genrval(lv);
 }
@@ -850,23 +850,23 @@ void genstore(struct lvalue *lv) {
 			cgstoriw();
 
 	}
-	else if (CAUTO == Stcls[lv->sym]) {
+	else if (CAUTO == Syms[lv->sym].stcls) {
 		if (PCHAR == lv->prim)
-			cgstorlb(Vals[lv->sym]);
+			cgstorlb(Syms[lv->sym].val);
 		else
-			cgstorlw(Vals[lv->sym]);
+			cgstorlw(Syms[lv->sym].val);
 	}
-	else if (CLSTATC == Stcls[lv->sym]) {
+	else if (CLSTATC == Syms[lv->sym].stcls) {
 		if (PCHAR == lv->prim)
-			cgstorsb(Vals[lv->sym]);
+			cgstorsb(Syms[lv->sym].val);
 		else
-			cgstorsw(Vals[lv->sym]);
+			cgstorsw(Syms[lv->sym].val);
 	}
 	else {
 		if (PCHAR == lv->prim)
-			cgstorgb(gsym(Names[lv->sym]));
+			cgstorgb(gsym(Syms[lv->sym].name));
 		else
-			cgstorgw(gsym(Names[lv->sym]));
+			cgstorgw(gsym(Syms[lv->sym].name));
 	}
 }
 
@@ -878,22 +878,22 @@ void genrval(struct lvalue *lv) {
 	if (!lv->sym) {
 		genind(lv->prim);
 	}
-	else if (CAUTO == Stcls[lv->sym]) {
+	else if (CAUTO == Syms[lv->sym].stcls) {
 		if (PCHAR == lv->prim)
-			queue(auto_byte, Vals[lv->sym], NULL);
+			queue(auto_byte, Syms[lv->sym].val, NULL);
 		else
-			queue(auto_word, Vals[lv->sym], NULL);
+			queue(auto_word, Syms[lv->sym].val, NULL);
 	}
-	else if (CLSTATC == Stcls[lv->sym]) {
+	else if (CLSTATC == Syms[lv->sym].stcls) {
 		if (PCHAR == lv->prim)
-			queue(static_byte, Vals[lv->sym], NULL);
+			queue(static_byte, Syms[lv->sym].val, NULL);
 		else
-			queue(static_word, Vals[lv->sym], NULL);
+			queue(static_word, Syms[lv->sym].val, NULL);
 	}
 	else {
 		if (PCHAR == lv->prim)
-			queue(globl_byte, 0, Names[lv->sym]);
+			queue(globl_byte, 0, Syms[lv->sym].name);
 		else
-			queue(globl_word, 0, Names[lv->sym]);
+			queue(globl_word, 0, Syms[lv->sym].name);
 	}
 }

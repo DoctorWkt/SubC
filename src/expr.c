@@ -76,12 +76,12 @@ static node *primary(struct lvalue *lv) {
 
 		// Save the symbol and primary type of the symbol
 		lv->sym = y;
-		lv->prim = Prims[y];
+		lv->prim = Syms[y].prim;
 
 		// If the next token isn't a '(', it's a function
 		// pointer, so make a function pointer node
 		// for the given symbol
-		if (TFUNCTION == Types[y]) {
+		if (TFUNCTION == Syms[y].type) {
 			if (LPAREN != Token) {
 				lv->prim = FUNPTR;
 				n = mkleaf(OP_ADDR, y);
@@ -90,13 +90,13 @@ static node *primary(struct lvalue *lv) {
 		}
 
 		// Constant: make an OP_LIT node with the value
-		if (TCONSTANT == Types[y]) {
-			return mkleaf(OP_LIT, Vals[y]);
+		if (TCONSTANT == Syms[y].type) {
+			return mkleaf(OP_LIT, Syms[y].val);
 		}
 
 		// Array: make an OP_ADDR node with the
 		// type being a pointer to the array's primitive type
-		if (TARRAY == Types[y]) {
+		if (TARRAY == Syms[y].type) {
 			n = mkleaf(OP_ADDR, y);
 			lv->prim = pointerto(lv->prim);
 			return n;
@@ -104,7 +104,7 @@ static node *primary(struct lvalue *lv) {
 
 		// If it's a struct or union, make an
 		// OP_ADDR node to the struct/union member
-		if (comptype(Prims[y])) {
+		if (comptype(Syms[y].prim)) {
 			n = mkleaf(OP_ADDR, y);
 			lv->sym = 0;	// But not to the original
 			return n;	// struct/union member
@@ -183,7 +183,7 @@ static node *fnargs(int fn, int *na) {
 
 	// Get the list of types for each argument
 	// if known, otherwise set empty for now
-	types = (int *) (fn? Mtext[fn]: NULL);
+	types = (int *) (fn? Syms[fn].mtext: NULL);
 
 	// Start with zero arguments, parse until a ')'
 	*na = 0;
@@ -211,7 +211,7 @@ static node *fnargs(int fn, int *na) {
 				sprintf(msg, "wrong type in argument %d"
 					" of call to: %%s",
 					*na+1);
-				error(msg, Names[fn]);
+				error(msg, Syms[fn].name);
 			}
 			// Move up to type of next argument
 			types++;
@@ -231,9 +231,9 @@ static node *fnargs(int fn, int *na) {
 		else
 			break;
 	}
-	if (fn && TFUNCTION == Types[fn] && !Mtext[fn]) {
-		Mtext[fn] = galloc((*na+1) * sizeof(int), 1);
-		memcpy(Mtext[fn], sgn, (*na+1) * sizeof(int));
+	if (fn && TFUNCTION == Syms[fn].type && !Syms[fn].mtext) {
+		Syms[fn].mtext = galloc((*na+1) * sizeof(int), 1);
+		memcpy(Syms[fn].mtext, sgn, (*na+1) * sizeof(int));
 	}
 	rparen();
 	return n;
@@ -282,7 +282,7 @@ static node *indirection(node *n, struct lvalue *lv) {
 	if ((p = deref(lv->prim)) < 0) {
 		if (lv->sym)
 			error("indirection through non-pointer: %s",
-				Names[lv->sym]);
+				Syms[lv->sym].name);
 		else
 			error("indirection through non-pointer", NULL);
 		p = lv->prim;
@@ -300,7 +300,7 @@ static node *indirection(node *n, struct lvalue *lv) {
 static void badcall(struct lvalue *lv) {
 	if (lv->sym)
 		error("call of non-function: %s",
-			Names[lv->sym]);
+			Syms[lv->sym].name);
 	else
 		error("call of non-function", NULL);
 }
@@ -342,8 +342,8 @@ static node *stc_access(node *n, struct lvalue *lv, int ptr) {
 
 	// If we have the offset of the member, build an OP_ADD
 	// node with the OP_LIT value as its child.
-	if ((PSTRUCT == p || STCPTR == p) && Vals[y]) {
-		n2 = mkleaf(OP_LIT, Vals[y]);
+	if ((PSTRUCT == p || STCPTR == p) && Syms[y].val) {
+		n2 = mkleaf(OP_LIT, Syms[y].val);
 		n2 = mkbinop(OP_ADD, n, n2);
 	}
 	
@@ -352,8 +352,8 @@ static node *stc_access(node *n, struct lvalue *lv, int ptr) {
 
 	// Get the member's primitive type. If it's an array,
 	// get a pointer to the base of the array.
-	p = Prims[y];
-	if (TARRAY == Types[y]) {
+	p = Syms[y].prim;
+	if (TARRAY == Syms[y].type) {
 		p = pointerto(p);
 		lv->addr = 0;
 	}
@@ -413,10 +413,10 @@ static node *postfix(struct lvalue *lv) {
 		case LPAREN:
 			Token = scan();
 			n = fnargs(lv->sym, &na);
-			if (lv->sym && TFUNCTION == Types[lv->sym]) {
-				if (!argsok(na, Sizes[lv->sym]))
+			if (lv->sym && TFUNCTION == Syms[lv->sym].type) {
+				if (!argsok(na, Syms[lv->sym].size))
 					error("wrong number of arguments: %s",
-						Names[lv->sym]);
+						Syms[lv->sym].name);
 				n = mkunop2(OP_CALL, lv->sym, na, n);
 			}
 			else {
@@ -498,7 +498,7 @@ static node *comp_size(void) {
 	else {
 		prefix(&lv);
 		y = lv.sym? lv.sym: 0;
-		k = y? objsize(Prims[y], Types[y], Sizes[y]):
+		k = y? objsize(Syms[y].prim, Syms[y].type, Syms[y].size):
 			objsize(lv.prim, TVARIABLE, 1);
 		if (0 == k)
 			error("cannot compute sizeof: %s",
@@ -601,7 +601,7 @@ static node *prefix(struct lvalue *lv) {
 		if (lv->addr) {
 			if (lv->sym) n = mkunop1(OP_ADDR, lv->sym, n);
 		}
-		else if ((0 == lv->sym || Types[lv->sym] != TARRAY) &&
+		else if ((0 == lv->sym || Syms[lv->sym].type != TARRAY) &&
 			 !comptype(lv->prim)
 		) {
 			error("lvalue expected after unary '&'", NULL);

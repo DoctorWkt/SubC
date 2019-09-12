@@ -183,12 +183,12 @@ static void return_stmt(void) {
 	if (Token != SEMI) {		// If there's an expression
 		expr(&lv, 1);		// Parse it and check its type matches
 					// this function
-		if (!typematch(lv.prim, Prims[Thisfn]))
+		if (!typematch(lv.prim, Syms[Thisfn].prim))
 			error("incompatible type in 'return'", NULL);
 	}
 					// No return value, so check
 	else {				// that this is a void function
-		if (Prims[Thisfn] != PVOID)
+		if (Syms[Thisfn].prim != PVOID)
 			error("missing value after 'return'", NULL);
 	}
 	genjump(Retlab);		// Generate the jump to the function return

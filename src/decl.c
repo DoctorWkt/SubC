@@ -149,7 +149,7 @@ int primtype(int t, char *s) {
 			}
 		}
 		// Now check that this struct/union exists
-		if ((y = findstruct(s)) == 0 || Prims[y] != p)
+		if ((y = findstruct(s)) == 0 || Syms[y].prim != p)
 			error("no such struct/union: %s", s);
 		// Add in the struct/union bitfield to the primitive type
 		p |= y;
@@ -470,17 +470,17 @@ static void signature(int fn, int from, int to) {
 	int	types[MAXFNARGS+1], i;
 
 	if (to - from > MAXFNARGS)
-		error("too many function parameters", Names[fn]);
+		error("too many function parameters", Syms[fn].name);
 	for (i=0; i<MAXFNARGS && from < to; i++)
-		types[i] = Prims[--to];
+		types[i] = Syms[--to].prim;
 	types[i] = 0;
-	if (NULL == Mtext[fn]) {
-		Mtext[fn] = galloc((i+1) * sizeof(int), 1);
-		memcpy(Mtext[fn], types, (i+1) * sizeof(int));
+	if (NULL == Syms[fn].mtext) {
+		Syms[fn].mtext = galloc((i+1) * sizeof(int), 1);
+		memcpy(Syms[fn].mtext, types, (i+1) * sizeof(int));
 	}
-	else if (intcmp((int *) Mtext[fn], types))
+	else if (intcmp((int *) Syms[fn].mtext, types))
 		error("declaration does not match prior prototype: %s",
-			Names[fn]);
+			Syms[fn].name);
 }
 
 /*
@@ -639,7 +639,7 @@ void structdecl(int clss, int uniondecl) {
 	// Set up the size of the struct/union in bytes
 	rbrace();
 	semi();
-	Sizes[y] = uniondecl? usize: addr;
+	Syms[y].size = uniondecl? usize: addr;
 }
 
 /*
