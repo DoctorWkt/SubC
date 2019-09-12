@@ -376,23 +376,42 @@ static node *stc_access(node *n, struct lvalue *lv, int ptr) {
  *	| postfix -> identifier
  */
 
+// Parse a postfix expression and return 
+// a sub-tree representing it. Also return
+// the lvalue details in lv.
 static node *postfix(struct lvalue *lv) {
 	node	*n = NULL, *n2;
 	int	p, na;
 	struct lvalue lv2;
 
+	// Parse the primary expression first
 	n = primary(lv);
+
+	// Loop until we run out of postfix operators
 	for (;;) {
 		switch (Token) {
 		case LBRACK:
+			// Index into an array.
+			// We might have several array indices
 			while (LBRACK == Token) {
+				// Perform an indirection on the
+				// expression and get the new type
 				n = indirection(n, lv);
+
+				// Scan the following expression
+				// parse it as an expression list
+				// and get its rvalue and type in lv2
 				Token = scan();
 				n2 = exprlist(&lv2, 1);
 				n2 = rvalue(n2, &lv2);
 				p = lv->prim;
+
+				// Error if not an integer
 				if (PINT != lv2.prim)
 					error("non-integer subscript", NULL);
+
+				// Scale the fixed index by the size of
+				// the elements in the array
 				if (    PINT == p || INTPTR == p ||
 					CHARPTR == p || VOIDPTR == p ||
 					STCPTR == (p & STCMASK) ||
@@ -400,36 +419,61 @@ static node *postfix(struct lvalue *lv) {
 				) {
 					n2 = mkunop(OP_SCALE, n2);
 				}
+				// Or scale the variable by the size of
+				// the elements in the array
 				else if (comptype(p)) {
 					n2 = mkunop1(OP_SCALEBY,
 						objsize(p, TVARIABLE, 1), n2);
 				}
+
+				// OP_ADD means add the array base address
+				// plus the offset
 				n = mkbinop(OP_ADD, n, n2);
+
+				// Get the final right bracket, set that we
+				// have an address for this expression but no
+				// symbol as it's an offset into the array
 				rbrack();
 				lv->sym = 0;
 				lv->addr = 1;
 			}
 			break;
 		case LPAREN:
+			// Function call. Move up to the first argument.
 			Token = scan();
+
+			// Scan and check all the arguments against any
+			// existing function prototype.
 			n = fnargs(lv->sym, &na);
+
+			// Check we have the correct number of arguments
 			if (lv->sym && TFUNCTION == Syms[lv->sym].type) {
 				if (!argsok(na, Syms[lv->sym].size))
 					error("wrong number of arguments: %s",
 						Syms[lv->sym].name);
+
+				// Make an OP_CALL node to the function
+				// with the # of args in na and the list pointer in n
 				n = mkunop2(OP_CALL, lv->sym, na, n);
 			}
 			else {
+				// It's a function pointer call Make an
+				//OP_CALR node instead but with same arguments
 				if (lv->prim != FUNPTR) badcall(lv);
 				n = mkunop2(OP_CALR, lv->sym, na, n);
-				lv->prim = PINT;
+				lv->prim = PINT;	// XXX: why PINT?
 			}
-			lv->addr = 0;
+			lv->addr = 0;			// Expression is an rvalue
 			break;
 		case INCR:
 		case DECR: 
+			// We must have an address (i.e a real lvalue)
+			// otherwise it's an error. Can't ++ an rvalue!
 			if (lv->addr) {
 				if (INCR == Token)
+					// Build a OP_POSTINC/DEC node
+					// to change the symbol and return
+					// the symbol's type
 					n = mkunop2(OP_POSTINC, lv->prim,
 						lv->sym, n);
 				else
@@ -438,11 +482,16 @@ static node *postfix(struct lvalue *lv) {
 			}
 			else
 				error("lvalue required before '%s'", Text);
+
+			// Get the next token and mark new tree as an rvalue
 			Token = scan();
 			lv->addr = 0;
 			break;
 		case DOT:
+			// Struct/union member access, get the member's name
 			Token = scan();
+			// Construct the tree to access this member's value,
+			// otherwise the expression before the '.' wasn't struct/union
 			if (comptype(lv->prim))
 				n = stc_access(n, lv, 0);
 			else
@@ -450,8 +499,13 @@ static node *postfix(struct lvalue *lv) {
 					NULL);
 			break;
 		case ARROW:
+			// Struct/union pointer access, get the member's name
 			Token = scan();
 			p = lv->prim & STCMASK;
+
+			// Error if expression before -> wasn't a pointer,
+			// otherwise get the rvalue of the right-hand side and
+			// construct the tree to access this member's value
 			if (p == STCPTR || p == UNIPTR) {
 				n = rvalue(n, lv);
 				n = stc_access(n, lv, 1);
@@ -463,6 +517,7 @@ static node *postfix(struct lvalue *lv) {
 			lv->sym = 0;
 			break;
 		default:
+			// An ordinary primary expression, return its tree
 			return n;
 		}
 	}
