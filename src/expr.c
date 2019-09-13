@@ -895,7 +895,13 @@ node *mkop(int op, int p1, int p2, node *l, node *r) {
  *	  binor
  */
 
+// Parse a binary expression and return 
+// a sub-tree representing it. Also return
+// the lvalue details in lv.
 static node *binexpr(struct lvalue *lv) {
+	// The binary operators have an order of predecence.
+	// So we have a list of 9 operators and 10 types & trees.
+	// We build the final AST tree to enforce the precedence order.
 	int	ops[9];
 	int	prims[10];
 	int	sp = 0;
@@ -903,9 +909,13 @@ static node *binexpr(struct lvalue *lv) {
 	struct lvalue lv2;
 	node	*tree[10];
 
+	// Parse the first expression with cast()
+	// and get its type and if its a proper lvalue
 	tree[0] = cast(lv);
 	a = lv->addr;
 	prims[0] = lv->prim;
+
+	// Based on the token that follows this first expression
 	while (SLASH == Token || STAR == Token || MOD == Token ||
 		PLUS == Token || MINUS == Token || LSHIFT == Token ||
 		RSHIFT == Token || GREATER == Token || GTEQ == Token ||
@@ -913,14 +923,24 @@ static node *binexpr(struct lvalue *lv) {
 		NOTEQ == Token || AMPER == Token || CARET == Token ||
 		PIPE == Token
 	) {
+		// Convert the previous expression into an rvalue
 		tree[0] = rvalue(tree[0], lv);
+
+		// While this token has same or lower precedence than
+		// the last token
 		while (sp > 0 && Prec[Token] <= Prec[ops[sp-1]]) {
+
+			// XXX: I need to grok this further!
 			tree[sp-1] = mkop(ops[sp-1], prims[sp-1], prims[sp],
 					tree[sp-1], tree[sp]);
 			prims[sp-1] = binoptype(ops[sp-1], prims[sp-1],
 					prims[sp]);
 			sp--;
 		}
+
+		// Save the operation for this node, scan the next token
+		// Parse the next expression with cast()
+		// and get its type and if its a proper lvalue
 		ops[sp++] = Token;
 		Token = scan();
 		tree[sp] = cast(&lv2);
@@ -928,12 +948,16 @@ static node *binexpr(struct lvalue *lv) {
 		prims[sp] = lv2.prim;
 		a = 0;
 	}
+
+	// XXX: I need to grok this further!
 	while (sp > 0) {
 		tree[sp-1] = mkop(ops[sp-1], prims[sp-1], prims[sp],
 				tree[sp-1], tree[sp]);
 		prims[sp-1] = binoptype(ops[sp-1], prims[sp-1], prims[sp]);
 		sp--;
 	}
+	// Finally get the primitive type of the top of the new tree
+	// and if there's an address, and return the top of the new tree
 	lv->prim = prims[0];
 	lv->addr = a;
 	return tree[0];
@@ -1019,6 +1043,8 @@ static node *cond3(struct lvalue *lv) {
 	return n;
 }
 
+// Convert an aritmetic token
+// into an AST operation.
 int arithop(int tok) {
 	switch(tok) {
 	case ASPLUS:	return PLUS;
@@ -1053,6 +1079,8 @@ int arithop(int tok) {
  */
 
 // Parse the possible assignment expressions
+// and return a sub-tree representing it.
+// Also return the lvalue details in lv.
 static node *asgmnt(struct lvalue *lv) {
 	node	*n, *n2, *src;
 	struct lvalue lv2, lvs;
@@ -1115,13 +1143,26 @@ static node *asgmnt(struct lvalue *lv) {
  *	| asgmnt , expr
  */
 
+// Parse which is possibly a list of expressions.
+// Parse which is possibly a list of expressions
+// and return a sub-tree representing the list.
+// Also return the lvalue details in lv. Check
+// it is not void if ckvoid is true.
 static node *exprlist(struct lvalue *lv, int ckvoid) {
 	node	*n, *n2 = NULL;
 	int	p;
 
+	// Parse the first expression with asgmnt()
+	// and get its primitive type.
 	n = asgmnt(lv);
 	p = lv->prim;
+
+	// If there's comma, convert to an rvalue()
 	if (COMMA == Token) n = rvalue(n, lv);
+
+	// Repeat while we have more comma-separated
+	// expressions. Use OP_COMMA nodes to join
+	// all the sub-trees together
 	while (COMMA == Token) {
 		Token = scan();
 		n2 = asgmnt(lv);
@@ -1129,10 +1170,18 @@ static node *exprlist(struct lvalue *lv, int ckvoid) {
 		p = lv->prim;
 		n = mkbinop(OP_COMMA, n, n2);
 	}
+
+	// Check the type of the last expression is not void
+	// and return the new AST tree
 	if (ckvoid) notvoid(p);
 	return n;
 }
 
+// Parse and emit an expression by
+// calling exprlist(), then rvalue()
+// to make it a value, then emittree().
+// If ckvoid, check that it's not a void
+// expression.
 void expr(struct lvalue *lv, int ckvoid) {
 	node	*n;
 
@@ -1142,12 +1191,18 @@ void expr(struct lvalue *lv, int ckvoid) {
 	emittree(n);
 }
 
+// Parse and emit an expression,
+// checking that it's not a void
+// expression.
 void rexpr(void) {
 	struct lvalue lv;
 
 	expr(&lv, 1);
 }
 
+// Parse what should be a constant expression.
+// Use fold_reduce() on the AST tree to
+// calculate the final value and return it.
 int constexpr(void) {
 	node	*n;
 	struct lvalue lv;
