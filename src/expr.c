@@ -973,25 +973,50 @@ static node *binexpr(struct lvalue *lv) {
  *	| logor '||' logand
  */
 
+// Parse a logical expression and return 
+// a sub-tree representing it. Also return
+// the lvalue details in lv.
 static node *cond2(struct lvalue *lv, int op) {
 	struct lvalue lv2;
 	int	lab = 0;
 	node	*n, *n2 = NULL;
 	int	tv = 1;
 
+	// Make LOGAND higher precedence than LOGOR
+	// by recursively parsing LOGAND operators first.
+	// Parse the first expression into the n sub-tree.
 	n = op == LOGOR? cond2(lv, LOGAND): binexpr(lv);
+
+	// While we have a LOGAND or LOGOR token
 	while (Token == op) {
+
+		// Get a label
 		if (!lab) lab = label();
-		if (tv) notvoid(lv->prim), tv = 0;
+		if (tv) notvoid(lv->prim), tv = 0;	// XXX: why
+
+		// Convert the previous expression into an rvalue
+		// and get the next token
 		n = rvalue(n, lv);
 		Token = scan();
+
+		// Parse the expression after the operator and
+		// convert the previous expression into an rvalue
 		n2 = op == LOGOR? cond2(&lv2, LOGAND): binexpr(&lv2);
 		n2 = rvalue(n2, &lv2);
+
+		// If an LOGOR, make a tree with the two children
+		// and a "branch if true to label" operation
 		if (op == LOGOR)
 			n = mkbinop1(OP_BRTRUE, lab, n, n2);
+
+		// Otherwise, a "branch if false to label" operation
 		else
 			n = mkbinop1(OP_BRFALSE, lab, n, n2);
 	}
+
+	// If we have a label, make a tree which is:
+	// OP_LAB -> OP_BOOL -> OP_BRTRUE -> child expressions
+	// The final true/false value is an INT rvalue
 	if (lab) {
 		n = mkunop1(OP_LAB, lab, n);
 		n = mkunop(OP_BOOL, n);
@@ -1007,17 +1032,28 @@ static node *cond2(struct lvalue *lv, int op) {
  *	| logor ? expr : condexpr
  */
 
+// Parse a ternary expression and return 
+// a sub-tree representing it. Also return
+// the lvalue details in lv.
 static node *cond3(struct lvalue *lv) {
 	node	*n, *n2;
 	int	p;
 	struct lvalue lv2;
 	int	l1 = 0, l2 = 0, tv = 1;
 
+	// Parse the first expression using cond2()
 	n = cond2(lv, LOGOR);
 	p = 0;
+
+	// Each time we find a following '?' token
 	while (QMARK == Token) {
+
+		// Convert the previous expression into an rvalue
 		n = rvalue(n, lv);
-		if (tv) notvoid(lv->prim), tv = 0;
+
+		if (tv) notvoid(lv->prim), tv = 0;	// XXX: why?
+
+		// XXX: more to add here
 		l1 = label();
 		if (!l2) l2 = label();
 		Token = scan();
@@ -1043,7 +1079,7 @@ static node *cond3(struct lvalue *lv) {
 	return n;
 }
 
-// Convert an aritmetic token
+// Convert an arithmetic token
 // into an AST operation.
 int arithop(int tok) {
 	switch(tok) {
