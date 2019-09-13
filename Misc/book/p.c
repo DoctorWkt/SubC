@@ -2,7 +2,7 @@
 
 #define	MAX 20000
 
-main() {
+void main() {
 	int	i, j, p[MAX], k, ref = 0;
 
 	for (k=0, i=3; k<MAX; i+=2) {

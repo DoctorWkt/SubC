@@ -148,7 +148,7 @@ void expr(char *s) {
 	sum();
 }
 
-main(int argc, char **argv) {
+int main(int argc, char **argv) {
 	expr(argc>1? argv[1]: "");
 	return EXIT_SUCCESS;
 }
