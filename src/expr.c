@@ -525,10 +525,14 @@ static node *postfix(struct lvalue *lv) {
 
 static node *prefix(struct lvalue *lv);
 
+// Scan in type information following a "sizeof" and
+// return an OP_LIT node with the size of the type.
 static node *comp_size(void) {
 	int	k = 0, y;
 	struct lvalue lv;
 
+	// For most keywords, set their size by hand.
+	// Change to PTRSIZE if the keyword is followed by a '*'
 	if (	CHAR == Token || INT == Token || VOID == Token ||
 		STRUCT == Token || UNION == Token
 	) {
@@ -550,6 +554,10 @@ static node *comp_size(void) {
 			error("sizeof(void) is unknown", NULL);
 		}
 	}
+
+	// Otherwise it's a prefix expression. So parse that to
+	// get the named symbol. Use objsize() to look up that
+	// symbol's size, or an error if we can't look it up.
 	else {
 		prefix(&lv);
 		y = lv.sym? lv.sym: 0;
@@ -559,6 +567,8 @@ static node *comp_size(void) {
 			error("cannot compute sizeof: %s",
 				Text);
 	}
+
+	// Return the leaf node with this size
 	return mkleaf(OP_LIT, k);
 }
 
@@ -586,6 +596,9 @@ static node *comp_size(void) {
  *	| UNION IDENT
  */
 
+// Parse a prefix expression and return 
+// a sub-tree representing it. Also return
+// the lvalue details in lv.
 static node *prefix(struct lvalue *lv) {
 	node	*n;
 	int	t;
@@ -593,9 +606,15 @@ static node *prefix(struct lvalue *lv) {
 	switch (Token) {
 	case INCR:
 	case DECR:
+		// Keep the old token and parse the prefix expression
+		// after the ++ or -- using prefix() i.e. recursively.
+		// Get the lvalue.
 		t = Token;
 		Token = scan();
 		n = prefix(lv);
+		// If it has an address (a real lvalue) build a
+		// OP_PREINC or OP_PREDEC node with the lvalue symbol.
+		// No address: an error
 		if (lv->addr) {
 			if (INCR == t)
 				n = mkunop2(OP_PREINC, lv->prim,
@@ -608,23 +627,35 @@ static node *prefix(struct lvalue *lv) {
 			error("lvalue expected after '%s'",
 				t == INCR? "++": "--");
 		}
+
+		// Set the address to zero as it's now an rvalue
 		lv->addr = 0;
 		return n;
 	case STAR:
+		// Get the next token and scan the cast expression.
+		// Convert that expression's type into a "value at"
+		// type with indirection. This must point to an
+		// address, so set the lvalue address to 1.
 		Token = scan();
 		n = cast(lv);
 		n = indirection(n, lv);
 		lv->addr = 1;
 		return n;
+
 	case PLUS:
+		// Get the next token and scan the cast expression.
+		// Make this into an rvalue. It has no address.
 		Token = scan();
 		n = cast(lv);
-		n = rvalue(n, lv); /* XXX really? */
+		n = rvalue(n, lv);
 		if (!inttype(lv->prim))
 			error("bad operand to unary '+'", NULL);
 		lv->addr = 0;
 		return n;
 	case MINUS:
+		// Get the next token and scan the cast expression.
+		// Make this into an rvalue.
+		// Add an OP_NEG node with the expression as child.
 		Token = scan();
 		n = cast(lv);
 		n = rvalue(n, lv);
@@ -634,6 +665,10 @@ static node *prefix(struct lvalue *lv) {
 		lv->addr = 0;
 		return n;
 	case TILDE:
+		// Get the next token and scan the cast expression.
+		// Make this into an rvalue.
+		// Add an OP_NOT node with the expression as child
+		// to bitwise invert the expression.
 		Token = scan();
 		n = cast(lv);
 		n = rvalue(n, lv);
@@ -643,6 +678,10 @@ static node *prefix(struct lvalue *lv) {
 		lv->addr = 0;
 		return n;
 	case XMARK:
+		// Get the next token and scan the cast expression.
+		// Make this into an rvalue.
+		// Add an OP_LOGNOT node with the expression as child
+		// to logically negate the expression.
 		Token = scan();
 		n = cast(lv);
 		n = rvalue(n, lv);
@@ -651,28 +690,41 @@ static node *prefix(struct lvalue *lv) {
 		lv->addr = 0;
 		return n;
 	case AMPER:
+		// Get the next token and scan the cast expression.
 		Token = scan();
 		n = cast(lv);
+		// If we have a symbol and an address, add an OP_ADDR
+		// node with the lvalue expression as child.
 		if (lv->addr) {
 			if (lv->sym) n = mkunop1(OP_ADDR, lv->sym, n);
 		}
+		// Otherwise it could be an array element. If not, error.
 		else if ((0 == lv->sym || Syms[lv->sym].type != TARRAY) &&
 			 !comptype(lv->prim)
 		) {
 			error("lvalue expected after unary '&'", NULL);
 		}
+		// Change the expression's type to a pointer to it
+		// with no address
 		lv->prim = pointerto(lv->prim);
 		lv->addr = 0;
 		return n;
 	case SIZEOF:
+		// Scan and verify the next token is a '('
 		Token = scan();
 		lparen();
+		// Get the computed size of the expression
 		n = comp_size();
+		// Scan and verify the next token is a ')'
 		rparen();
+		// We got an OP_LIT node, so it's type is PINT
+		// with no address
 		lv->prim = PINT;
 		lv->addr = 0;
 		return n;
 	default:
+		// We didn't recognise the first token, so
+		// pass it to postfix()
 		return postfix(lv);
 	}
 }
