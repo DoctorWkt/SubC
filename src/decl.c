@@ -80,48 +80,77 @@ static void enumdecl(int glob) {
  *	| constexpr , const_list
  */
 
+// Parse either a string literal or
+// a list of constant expressions
 static int initlist(char *name, int prim) {
 	int	n = 0, v;
-	char	buf[30];
+	char	buf[30];		// Used to sprintf out the value
 
+	// Move to the data section
 	gendata();
+
+	// Generate a label for the name
 	genname(name);
+
+	// If it's a string literal, an error if char isn't the
+	// primitive type.
 	if (STRLIT == Token) {
 		if (PCHAR != prim)
 			error("initializer type mismatch: %s", name);
+
+		// Generate the byte values after the name's label
+		// ending with a NUL character. Align on a word boundary.
 		gendefs(Text, Value);
 		gendefb(0);
 		genalign(Value-1);
+
+		// Scan in the next token and return the literal's length
 		Token = scan();
-		return Value-1;
+		return Value-1;		// XXX: Why -1?
 	}
+
+	// Not a string literal, so scan the '{' token
+	// Until we get a '}' token ...
 	lbrace();
 	while (Token != RBRACE) {
+		// Parse the constant expression
 		v = constexpr();
+		// Error check the range if it should be of 'char' type
 		if (PCHAR == prim) {
 			if (v < 0 || v > 255) {
 				sprintf(buf, "%d", v);
 				error("initializer out of range: %s", buf);
 			}
+			// Generate a byte of data, or a word if an 'int'
 			gendefb(v);
 		}
 		else {
 			gendefw(v);
 		}
+
+		// Increment the number of literals found
 		n++;
+
+		// Skip past any commas and loop back
+		// (doing an EOF check), or leave loop
+		// if no commas
 		if (COMMA == Token)
 			Token = scan();
 		else
 			break;
 		if (eofcheck()) return 0;
 	}
+
+	// Align the final storage if we were storing 'char's.
+	// Scan in the next token. Error if nothing in the '{ .. }'
+	// Return the number of literals read in.
 	if (PCHAR == prim) genalign(n);
 	Token = scan();
 	if (!n) error("too few initializers", NULL);
 	return n;
 }
 
-// Given a token t, convert it into a type.
+// Given a token t, convert it into a primitive type.
 // If it's a struct/union, s holds the name of this.
 // Return the type value.
 int primtype(int t, char *s) {
@@ -215,6 +244,10 @@ static int pmtrdecls(void) {
 	return na;
 }
 
+// Given a primitive type value, return
+// the type that is a pointer to it.
+// Ensure we don't have too many levels
+// of indirection. At worst, return a void pointer.
 int pointerto(int prim) {
 	int	y;
 
