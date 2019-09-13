@@ -738,25 +738,43 @@ static node *prefix(struct lvalue *lv) {
  *	| ( INT ( * ) ( ) ) prefix
  */
 
+// Parse a cast expression and return 
+// a sub-tree representing it. Also return
+// the lvalue details in lv.
 static node *cast(struct lvalue *lv) {
 	int	t;
 	node	*n;
 
+	// We got a leading '(' token, get the next token
 	if (LPAREN == Token) {
 		Token = scan();
+
+		// Check we have a type keyword following the '('
 		if (	INT == Token || CHAR == Token || VOID == Token ||
 			STRUCT == Token || UNION == Token
 		) {
+			// Get the primitive type of this token
+			// and move up to the next token
 			t = primtype(Token, NULL);
 			Token = scan();
 		}
 		else {
+			// Hmm, we didn't recognise that keyword
+			// so push the token back into the queue
+			// and go back to the '(' token. Parse
+			// what follows with prefix().
 			reject();
 			Token = LPAREN;
 			strcpy(Text, "(");
 			return prefix(lv);
 		}
+
+		// At this point we have scanned the '(' '<type>' tokens.
+		// If we scan '(' 'INT' '(' ...
 		if (PINT == t && LPAREN == Token) {
+			// Move up to the next token. Confirm it's a '*'.
+			// Scan '(' ')' '(' after that, and set this
+			// is a function pointer
 			Token = scan();
 			match(STAR, "int(*)()");
 			rparen();
@@ -764,6 +782,9 @@ static node *cast(struct lvalue *lv) {
 			rparen();
 			t = FUNPTR;
 		}
+		// The only thing possibly left is one or two '*'s.
+		// Scan them, and use pointerto() once or twice
+		// to chnage the type as required
 		else if (STAR == Token) {
 			t = pointerto(t);
 			Token = scan();
@@ -772,11 +793,16 @@ static node *cast(struct lvalue *lv) {
 				Token = scan();
 			}
 		}
+
+		// Match the trailing ')', then parse the following
+		// expression with prefix(). Set the type of this
+		// expression to what we found here, t
 		rparen();
 		n = prefix(lv);
 		lv->prim = t;
 		return n;
 	}
+	// No leading '(', so pass it to prefix()
 	else {
 		return prefix(lv);
 	}
@@ -806,6 +832,10 @@ int binop(int tok) {
 	}
 }
 
+// Given a binary operator token in op, a left and right child
+// sub-tree in l and r, and two AST node arguments in p1 and p2,
+// use the token to determine what binary AST node to make for
+// these children. Return the new tree.
 node *mkop(int op, int p1, int p2, node *l, node *r) {
 	if (PLUS == op || MINUS == op) {
 		return mkbinop2(binop(op), p1, p2, l, r);
