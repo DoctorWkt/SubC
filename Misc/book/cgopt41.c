@@ -1,17 +1,277 @@
+// This is cg4.c combined with opt1.c
+// Parse and build an AST. Optimise it.
+// Generate code with cyclic register allocation.
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 
-#define NODES	1024
+// ************************
+// *** Pre-declarations ***
+// ************************
 
-char	*P;			// The most recent token character scanned in
+void gen(char *s);
+void gen2(char *s, int a);
+void genr(char *s);
 
+#define NODES	1024		// Up to 1024 AST nodes
 				// Each AST node has these member fields
 int	Type[NODES],		// The operation being performed on
 	Left[NODES],		// the left, right, neither or both sub-trees
 	Right[NODES],	
 	Value[NODES];		// Leaf nodes have a value
+
+
+// **********************************
+// *** Cyclic Register Allocation ***
+// **********************************
+
+// This is an implementation of cyclic register allocation
+// including the use of the stack to spill registers.
+// The two most important functions are push() and pop().
+
+int     N = 4;                  // Four available general-purpose registers
+                                // numbered 1 to 4
+int     R = 0;                  // No register has yet been allocated
+int     S = 0;                  // Depth of register stack
+
+// Allocate a register by setting R to
+// the next available register. Normally,
+// just increment R and use that register.
+// We can only do this if we haven't
+// allocated it before (S==0, R<N).
+
+// When R>=N, we've run out of registers.
+// push R1 onto the stack and record the
+// push by increasing the stack depth in S.
+
+// If we have pushed registers on the stack
+// (i.e. S>0, we've looped around the circle
+// of registers at least once), push and
+// allocate the next register. Record the
+// push by increasing the stack depth in S.
+void push(void) {
+        if (R >= N) {
+                R = 1;
+                gen("push R%d");
+                S++;
+        }
+        else if (S) {
+                R++;
+                gen("push R%d");
+                S++;
+        }
+        else {
+                R++;
+        }
+}
+
+// Free up previously allocated register R.
+// Normally, just decrement R.
+// We can only do this if we haven't
+// allocated it before (S==0, R<N).
+
+// When there is no previous register to
+// select (R<=1), pop the current register
+// from the stack, decrement the stack count
+// and set R to N.
+
+// If there are registers on the stack (S!=0),
+// pop the current register from the stack,
+// decrement the stack count and decrement R.
+void pop(void) {
+        if (R <= 1) {
+                gen("pop  R%d");
+                R = N;
+                S--;
+        }
+        else if (S) {
+                gen("pop  R%d");
+                S--;
+                R--;
+        }
+        else {
+                R--;
+        }
+}
+
+// When we get a ',' operation, we now have
+// a second expression. Free up all the
+// registers
+void freeallregs()
+{
+  R = 0; S = 0;
+}
+
+// ***********************
+// *** Code Generation ***
+// ***********************
+
+// A one-position instruction queue
+// When Qi==0, the queue is empty.
+// When Qi==1, Qx holds the queued instruction.
+int     Qi = 0, Qx;
+
+// Print out a fixed format instruction
+void gen(char *s) {
+        printf(s, R);
+        putchar('\n');
+}
+
+// Print out a parameterised instruction
+void gen2(char *s, int a) {
+        printf(s, a, R);
+        putchar('\n');
+}
+
+// Generate an instruction using the
+// currently allocated register and
+// a previously allocated register
+
+// Normally use R and R-1. But if there
+// is no previous register to select (R<=1), 
+// use the value N.
+//
+void genr(char *s) {
+        int     d;
+
+        d = R < 2? N: R-1;
+        printf(s, R, d);
+        putchar('\n');
+}
+
+// Do code synthesis to generate
+// instruction(s) for the operation in i.
+// We only synthesize binary instructions.
+void synth(int i) {
+        int     g;
+
+        // g is true if the second operand is a global
+        g = isupper(Qx);
+
+        // If there's nothing in the queue, then we
+        // already have both operands in two registers.
+
+        // If a queued load instruction, use direct
+        // addressing to access either the global or
+        // local variable. For division and subtraction,
+        // swap A and X to get the operands in the correct order.
+        switch (i) {
+        case '+': if (!Qi)
+                        genr("addr R%d,R%d");
+                  else if (g)
+                        gen2("addg _%c,R%d", Qx);
+                  else
+                        gen2("addl _%c,R%d", Qx);
+                  break;
+        case '*': if (!Qi)
+                        genr("mulr R%d,R%d");
+                  else if (g)
+                        gen2("mulg _%c,R%d", Qx);
+                  else
+                        gen2("mull _%c,R%d", Qx);
+                  break;
+        case '-': if (!Qi) {
+                        genr("swap R%d,R%d");
+                        genr("subr R%d,R%d");
+                  }
+                  else if (g)
+                        gen2("subg _%c,R%d", Qx);
+                  else
+                        gen2("subl _%c,R%d", Qx);
+                  break;
+        case '/': if (!Qi) {
+                        genr("swap R%d,R%d");
+                        genr("divr R%d,R%d");
+                  }
+                  else if (g)
+                        gen2("divg _%c,R%d", Qx);
+                  else
+                        gen2("divl _%c,R%d", Qx);
+                  break;
+        }
+
+        // If there was a queued instruction,
+        // we've used that operand, so free that register.
+        // Set the queue empty
+        if (!Qi) pop();
+        Qi = 0;
+}
+
+// Load a global or local variable into
+// a register based on the instruction
+// in the queue.
+void load(void) {
+        // Choose a new register
+        push();
+
+        // Issue either a local or global load
+        switch (Qi) {
+        case 'c': gen2("lc   %d,R%d", Qx);
+                  break;
+        case 'v': gen2("lv   _%c,R%d", Qx);
+                  break;
+        }
+
+        // Set the queue empty again
+        Qi = 0;
+}
+
+// Queue an instruction. If there's
+// already an instruction in the queue,
+// generate that instruction.
+void queue(int i, int x) {
+        if (Qi) load();
+        Qi = i;
+        Qx = x;
+}
+
+// Emit assembly code for a CPU with a main accumulator.
+// n is the root of the AST tree.
+// i is the instruction.
+// x is a literal constant for 'c' operations.
+// x is a variable name for 'v' operations.
+// For binary ops, x is zero.
+void emit(int n) {
+	int i, x;
+
+	// No node, return
+	if (!n) return;
+	i= Type[n];
+	x= Value[n];
+
+        switch (i) {
+
+        // For load instructions, just queue the instruction
+        case 'c':
+        case 'v': queue(i, x);
+                  break;
+
+        // For negating instructions, load the accumulator
+        // and then generate a negate instruction
+        case '_': load();
+                  gen("neg  R%d");
+                  break;
+
+	// End of last expression, so free up all registers
+	case ',': if (Qi) load();		// Flush final instruction
+		  freeallregs();
+                  break;
+
+        // Otherwise, generate synthesized code for the instruction
+	// First emit the left-hand child code, then the right-hand one
+        default:  emit(Left[n]);
+		  emit(Right[n]);
+		  synth(i);
+                  break;
+        }
+}
+
+
+// **********************
+// *** AST Generation ***
+// **********************
 
 // Type can be one of: + - * /, or
 //	'c' for a literal constant stored in Value, or
@@ -34,6 +294,91 @@ int node(int t, int v, int l, int r) {
 	Right[Next] = r;
 	return Next++;
 }
+
+// Recursively dump the AST rooted at n.
+// Indent by k spaces.
+void dump(int n, int k) {
+	int	i;
+
+	// No node, return
+	if (!n) return;
+
+	// Print k spaces
+	for (i=0; i<k; i++)
+		printf("  ");
+
+	// Print out the operator, 'c' or 'v'
+	putchar(Type[n]);
+
+	// Print out a leaf's literal value or variable name
+	if ('c' == Type[n])
+		printf("(%d)", Value[n]);
+	else if ('v' == Type[n])
+		printf("(%c)", Value[n]);
+
+	// End the line, then dump the left and right children
+	putchar('\n');
+	dump(Left[n], k+1);
+	dump(Right[n], k+1);
+}
+
+// These functions draw the AST using
+// pic and groff. Invoke with -d.
+void draw2(int n, int w, int d) {
+	if (!n) return;
+	if ('c' == Type[n])
+		printf("N%d: box width 0.3i height 0.3i \"%d\"\n",
+			n, Value[n]);
+	else if ('v' == Type[n])
+		printf("N%d: box width 0.3i height 0.3i \"%c\"\n",
+			n, Value[n]);
+	else
+		printf("N%d: circle radius 0.15i \"%c\"\n", n, Type[n]);
+	if (Left[n]) {
+		printf("move to N%d\n", n);
+		if (Right[n]) {
+			printf("move down 0.5i left %d.%di\n", w/1000, w%1000);
+			draw2(Left[n], w/d, d+1);
+			printf("arrow from left of N%d to top of N%d\n",
+				n, Left[n]);
+		}
+		else {
+			printf("move down 0.5i\n");
+			draw2(Left[n], w/d, d+1);
+			printf("arrow from bottom of N%d to top of N%d\n",
+				n, Left[n]);
+		}
+	}
+	if (Right[n]) {
+		printf("move to N%d\n", n);
+		if (Left[n]) {
+			printf("move down 0.5i right %d.%di\n", w/1000, w%1000);
+			draw2(Right[n], w/d, d+1);
+			printf("arrow from right of N%d to top of N%d\n",
+				n, Right[n]);
+		}
+		else {
+			printf("move down 0.5i\n");
+			draw2(Right[n], w/d, d+1);
+			printf("arrow from bottom of N%d to top of N%d\n",
+				n, Right[n]);
+		}
+	}
+}
+
+// These functions draw the AST using
+// pic and groff. Invoke with -d.
+void draw(int n) {
+	printf(".ft C\n.ps 12\n.PS\n");
+	draw2(n, 1800, 24);
+	printf(".PE\n");
+}
+
+// ****************************
+// *** Scanning and Parsing ***
+// ****************************
+
+char	*P;			// The most recent token character scanned in
 
 // Skip whitespace on the input
 void skip(void) {
@@ -156,84 +501,9 @@ int expr(char *s) {
 	return sum();
 }
 
-// Recursively dump the AST rooted at n.
-// Indent by k spaces.
-void dump(int n, int k) {
-	int	i;
-
-	// No node, return
-	if (!n) return;
-
-	// Print k spaces
-	for (i=0; i<k; i++)
-		printf("  ");
-
-	// Print out the operator, 'c' or 'v'
-	putchar(Type[n]);
-
-	// Print out a leaf's literal value or variable name
-	if ('c' == Type[n])
-		printf("(%d)", Value[n]);
-	else if ('v' == Type[n])
-		printf("(%c)", Value[n]);
-
-	// End the line, then dump the left and right children
-	putchar('\n');
-	dump(Left[n], k+1);
-	dump(Right[n], k+1);
-}
-
-// These functions draw the AST using
-// pic and groff. Invoke with -d.
-void draw2(int n, int w, int d) {
-	if (!n) return;
-	if ('c' == Type[n])
-		printf("N%d: box width 0.3i height 0.3i \"%d\"\n",
-			n, Value[n]);
-	else if ('v' == Type[n])
-		printf("N%d: box width 0.3i height 0.3i \"%c\"\n",
-			n, Value[n]);
-	else
-		printf("N%d: circle radius 0.15i \"%c\"\n", n, Type[n]);
-	if (Left[n]) {
-		printf("move to N%d\n", n);
-		if (Right[n]) {
-			printf("move down 0.5i left %d.%di\n", w/1000, w%1000);
-			draw2(Left[n], w/d, d+1);
-			printf("arrow from left of N%d to top of N%d\n",
-				n, Left[n]);
-		}
-		else {
-			printf("move down 0.5i\n");
-			draw2(Left[n], w/d, d+1);
-			printf("arrow from bottom of N%d to top of N%d\n",
-				n, Left[n]);
-		}
-	}
-	if (Right[n]) {
-		printf("move to N%d\n", n);
-		if (Left[n]) {
-			printf("move down 0.5i right %d.%di\n", w/1000, w%1000);
-			draw2(Right[n], w/d, d+1);
-			printf("arrow from right of N%d to top of N%d\n",
-				n, Right[n]);
-		}
-		else {
-			printf("move down 0.5i\n");
-			draw2(Right[n], w/d, d+1);
-			printf("arrow from bottom of N%d to top of N%d\n",
-				n, Right[n]);
-		}
-	}
-}
-
-// These functions draw the AST using
-// pic and groff. Invoke with -d.
-void draw(int n) {
-	printf(".ft C\n.ps 12\n.PS\n");
-	draw2(n, 1800, 24);
-	printf(".PE\n");
-}
+// ********************
+// *** Optimisation ***
+// ********************
 
 // Perform constant expression folding
 // on the tree rooted at n, returning
@@ -478,6 +748,7 @@ int cse(int n) {
 // Perform strength reduction with rewrite().
 // Perform common sub-expression elimination with cse().
 // Dump or draw the final AST tree.
+// Finally emit the assembly code for the tree
 void comp(char *s, int d) {
 	int	n;
 
@@ -486,7 +757,14 @@ void comp(char *s, int d) {
 	n = rewrite(n);
 	n = cse(n);
 	d? draw(n): dump(n, 0);
+	puts("");
+	emit(n);
+	if (Qi) load();		// Flush final instruction
 }
+
+// ********************
+// *** Main Program ***
+// ********************
 
 // Turn on drawing if -d is on the command
 // line. Then parse the last argument.
