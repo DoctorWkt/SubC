@@ -1,3 +1,5 @@
+CFLAGS=-g
+
 all: cgopt41 optint
 
 clean:
