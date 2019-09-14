@@ -1,7 +1,7 @@
-all: cg1 cg2 cg3 cg4 opt1 p s cgopt41
+all: cg1 cg2 cg3 cg4 opt1 p s
 
 clean:
-	rm -f cg1 cg2 cg3 cg4 opt1 p s a.pdf cgopt41
+	rm -f cg1 cg2 cg3 cg4 opt1 p s a.pdf
 
 # Test each program
 test: cg1 cg2 cg3 cg4 opt1 p s
