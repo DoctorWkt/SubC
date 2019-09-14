@@ -927,7 +927,7 @@ int main(int argc, char **argv) {
   FILE *zin;
   char buf[1024];
 
-  if (argc > 1 && !strcmp(argv[1], "-d")) {
+  while (argc > 1 && !strcmp(argv[1], "-d")) {
     drawflag++; argc--; argv++;
   }
 
