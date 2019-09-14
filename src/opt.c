@@ -201,8 +201,17 @@ node *fold_reduce(node *n) {
 	return n;
 }
 
-// Try to reorder some of the
-// operations in an AST tree
+// Recursively swap the left and right
+// child trees around. Nils' book says
+// the conditions are:
+// the root node represents a commutative operation;
+// it has a leaf node on the left side;
+// it has a non-leaf node on the right side.
+//
+// The purpose is to minimise the pressure on
+// register allocation and to reduce the amount
+// of assembly code generated. Read Nils' book
+// for well-written details.
 node *reorder_ops(node *n) {
 	int	op, lop, t;
 	node	*tn;
@@ -234,13 +243,14 @@ node *reorder_ops(node *n) {
 		 OP_BINAND == op || OP_BINIOR == op || OP_BINXOR == op ||
 		 OP_EQUAL == op || OP_NOTEQ == op)
 	) {
-		if (OP_PLUS == op) {	/* switch types */	// XXX: Why?
+		// Switch the type of each sub-tree around
+		if (OP_PLUS == op) {
 			t = n->args[0];
 			n->args[0] = n->args[1];
 			n->args[1] = t;
 		}
 
-		// Swap the child nodes around			// XXX: Why?
+		// Swap the child nodes around
 		tn = n->right;
 		n->right = n->left;
 		n->left = tn;
