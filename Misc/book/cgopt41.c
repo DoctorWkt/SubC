@@ -145,10 +145,10 @@ void genr(char *s) {
 // instruction(s) for the operation in i.
 // We only synthesize binary instructions.
 void synth(int i) {
-        int     g;
+        int     isv;
 
-        // g is true if the second operand is a global
-        g = isupper(Qx);
+        // isv is true if the second operand is a variable
+        isv = isalpha(Qx);
 
         // If there's nothing in the queue, then we
         // already have both operands in two registers.
@@ -160,35 +160,35 @@ void synth(int i) {
         switch (i) {
         case '+': if (!Qi)
                         genr("addr R%d,R%d");
-                  else if (g)
-                        gen2("addg _%c,R%d", Qx);
+                  else if (isv)
+                        gen2("add  _%c,R%d", Qx);
                   else
-                        gen2("addl _%c,R%d", Qx);
+                        gen2("add  #%d,R%d", Qx);
                   break;
         case '*': if (!Qi)
-                        genr("mulr R%d,R%d");
-                  else if (g)
-                        gen2("mulg _%c,R%d", Qx);
+                        genr("mul  R%d,R%d");
+                  else if (isv)
+                        gen2("mul  _%c,R%d", Qx);
                   else
-                        gen2("mull _%c,R%d", Qx);
+                        gen2("mul  #%d,R%d", Qx);
                   break;
         case '-': if (!Qi) {
                         genr("swap R%d,R%d");
                         genr("subr R%d,R%d");
                   }
-                  else if (g)
-                        gen2("subg _%c,R%d", Qx);
+                  else if (isv)
+                        gen2("sub  _%c,R%d", Qx);
                   else
-                        gen2("subl _%c,R%d", Qx);
+                        gen2("sub  #%d,R%d", Qx);
                   break;
         case '/': if (!Qi) {
                         genr("swap R%d,R%d");
                         genr("divr R%d,R%d");
                   }
-                  else if (g)
-                        gen2("divg _%c,R%d", Qx);
+                  else if (isv)
+                        gen2("div  _%c,R%d", Qx);
                   else
-                        gen2("divl _%c,R%d", Qx);
+                        gen2("div  #%d,R%d", Qx);
                   break;
         }
 
@@ -208,9 +208,9 @@ void load(void) {
 
         // Issue either a local or global load
         switch (Qi) {
-        case 'c': gen2("lc   %d,R%d", Qx);
+        case 'c': gen2("load #%d,R%d", Qx);
                   break;
-        case 'v': gen2("lv   _%c,R%d", Qx);
+        case 'v': gen2("load _%c,R%d", Qx);
                   break;
         }
 
@@ -248,19 +248,19 @@ void emit(int n) {
         case 'v': queue(i, x);
                   break;
 
-        // For negating instructions, load the accumulator
-        // and then generate a negate instruction
-        case '_': load();
-                  gen("neg  R%d");
+	// Assignment statement
+        case '=': emit(Right[n]);       // Do the right-hand expression
+                  gen2("stor _%c,R%d", Value[ Left[n] ]);
                   break;
 
-	// End of last expression, so free up all registers
-	case ',': if (Qi) load();		// Flush final instruction
-		  freeallregs();
+	// Two sequential expressions
+	case ',': emit(Left[n]);	// First emit the left-hand child code
+		  if (Qi) load();	// Flush final instruction
+		  freeallregs();	// Free the registers
+		  emit(Right[n]);	// Now do the right-hand one
                   break;
 
         // Otherwise, generate synthesized code for the instruction
-	// First emit the left-hand child code, then the right-hand one
         default:  emit(Left[n]);
 		  emit(Right[n]);
 		  synth(i);
