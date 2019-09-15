@@ -197,44 +197,64 @@ int primtype(int t, char *s) {
  *	| primtype declarator , pmtrlist
  */
 
+// Parse the declaration of a function's parameters
 static int pmtrdecls(void) {
 	char	name[NAMELEN+1];
 	int	prim, type, size, na, addr;
 	int	dummy;
 
+	// We've already parsed the '('.
+	// Do nothing if we get a ')' immediately.
 	if (RPAREN == Token)
 		return 0;
+
+	// No arguments at present
 	na = 0;
-	addr = 2*BPW;
+	addr = 2*BPW;	// XXX Why?
+
+	// Loop until we find the ')'
 	for (;;) {
+		// XXX: binary invert the number of arguments
+		// if we see a '...' token. Why?
 		if (na > 0 && ELLIPSIS == Token) {
 			Token = scan();
 			na = -(na + 1);
 			break;
 		}
+		// Parameter is an identifier, mark it as integer type
 		else if (IDENT == Token) {
 			prim = PINT;
 		}
+		// Otherwise it has to be a type specifier
 		else {
 			if (	Token != CHAR && Token != INT &&
 				Token != VOID &&
 				Token != STRUCT && Token != UNION
 			) {
+				// But it wasn't, so issue an error
+				// and try to synchronise at the next ';'
 				error("type specifier expected at: %s", Text);
 				Token = synch(RPAREN);
 				return na;
 			}
+			// It was a type specifier. Get its primitive type
+			// and move up to the next token. Return when we
+			// see a ')' and we had some arguments
 			name[0] = 0;
 			prim = primtype(Token, NULL);
 			Token = scan();
 			if (RPAREN == Token && prim == PVOID && !na)
 				return 0;
 		}
+
+		// XXX: Not sure what's going on below yet
 		size = 1;
 		type = declarator(1, CAUTO, name, &prim, &size, &dummy,
 				&dummy);
 		addloc(name, prim, type, CAUTO, size, addr, 0);
 		addr += BPW;
+
+		// We have one more argument, scan past the following ','
 		na++;
 		if (COMMA == Token)
 			Token = scan();
@@ -285,6 +305,7 @@ int pointerto(int prim) {
  *	| ( * IDENT ) ( )
  */
 
+// Parse the identifier part of a declarator
 static int declarator(int pmtr, int scls, char *name, int *pprim, int *psize,
 			int *pval, int *pinit)
 {

@@ -11,8 +11,9 @@
 // current line. Print out a formatted with the
 // string s. Die if we've had too many errors.
 void error(char *s, char *a) {
-	if (Syntoken) return;		// XXX Why?
-	if (!Errors) cleanup();
+	if (Syntoken) return;		// Don't report an error if we are currently
+					// trying to find a synchronisation token.
+	if (!Errors) cleanup();		// Cleanup output files if some errors
 	fprintf(stderr, "error: %s: %d: ", File, Line);
 	fprintf(stderr, s, a);
 	fprintf(stderr, "\n");
