@@ -50,7 +50,7 @@ void push(void) {
         else {
                 R++;
         }
-	printf("R%d is allocated", R);
+	printf("R%d is allocated, ", R);
 }
 
 // Free up previously allocated register R.
@@ -80,7 +80,7 @@ void pop(void) {
         else {
                 R--;
         }
-	printf("R%d is allocated", R);
+	printf("R%d is allocated, ", R);
 }
 
 // Normally use R and R-1. But if there
@@ -91,7 +91,24 @@ void genr() {
         int     d;
 
         d = R < 2? N: R-1;
-        printf(", operation on R%d and R%d\n", R, d);
+        printf("op on R%d & R%d, ", R, d);
+}
+
+// Determine which registers to spill before a function call
+void spillbeforecall()
+{
+  if (S) {
+    printf("spill all regs");
+  } else {
+    if (R) {
+      printf("spill ");
+      for (int i=1; i<=R; i++)
+	printf("R%d ", i);
+    } else {
+      printf("no regs to spill");
+    }
+  }
+  printf("\n");
 }
 
 void main()
@@ -99,14 +116,15 @@ void main()
   int i;
   printf("Allocating registers\n");
   printf("--------------------\n");
-  push(); puts("");
+  spillbeforecall();
+  push(); spillbeforecall();
   for (i=0; i < 10; i++) {
-    push(); genr();
+    push(); genr(); spillbeforecall();
   }
   puts("");
   printf("Freeing registers\n");
   printf("-----------------\n");
-  for (i=0; i < 9; i++) {
-    pop(); genr();
+  for (i=0; i < 10; i++) {
+    pop(); genr(); spillbeforecall();
   }
 }

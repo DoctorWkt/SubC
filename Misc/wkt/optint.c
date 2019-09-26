@@ -259,8 +259,10 @@ void synth(int i) {
   // If there was a queued instruction,
   // we've used that operand, so free that register.
   // Set the queue empty
-  if (!Qi)
+  if (!Qi) {
+    printf("pop()\n");
     pop();
+  }
   Qi = 0;
 }
 
@@ -269,6 +271,7 @@ void synth(int i) {
 // in the queue.
 void load(void) {
   // Choose a new register
+  printf("push()\n");
   push();
 
   // Issue either a local or global load

@@ -14,3 +14,7 @@ related to the SubC material:
     > 2*(a+b)+c*(a+b);
     > a+b+c;
 ```
+ 
+ + The files `example1` and `example2` are sample inputs to `optint.c`.
+ + `showcycle.c`: I just wanted to visualise the cyclic register allocation
+    code in Nils' book, so I wrote this code to do that.
