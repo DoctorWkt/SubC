@@ -1,0 +1,24 @@
+#!/bin/sh
+#rm -f z.s
+#./scc0 -c z.c
+#ld -o z  /usr/local/scc/lib/crt0.o z.o /usr/local/scc/lib/libscc.a
+for i in *.c
+do base=`echo $i | sed 's/\.c$//'`
+   echo -n "Testing $i: "
+   rm -f $base.s $base.o $base $base.gout $base.sout
+   ../scc0 -c $base.c
+   ld -o $base /usr/local/scc/lib/crt0.o $base.o /usr/local/scc/lib/libscc.a
+   ./$base > $base.sout
+
+   rm -f $base.o $base $base.gout
+   gcc -o $base $base.c
+   ./$base > $base.gout
+
+   cmp -s $base.gout $base.sout
+   if [ "$?" -eq 0 ]
+   then echo OK
+   else echo FAIL
+	diff $base.gout $base.sout
+   fi
+   rm -f $base.s $base.o $base $base.gout $base.sout
+done

@@ -1,4 +1,4 @@
-## The Basics of a Compiler
+# The Basics of a Compiler
 
 The job of a compiler is to translate input in one language (usually
 a high-level language) into a different output language (usually a
