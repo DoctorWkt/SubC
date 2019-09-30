@@ -294,7 +294,8 @@ void cgunspillregs()
 ```
 
 Question: why do we need a stack for R and S? Why not just use the current values of R
-and S? The answer is that can call functions as part of the arguments to functions, e.g.:
+and S? The answer is that functions
+can call functions as part of the arguments to functions, e.g.:
 
 ```
 void main()
@@ -364,22 +365,6 @@ to spill and unspill registers:
                         gencalr();
                         genstack((a->args[1]) * BPW);
                         genunspillregs();
-                        break;        case OP_CALL:   genspillregs();
-                        emitargs(a->left);
-                        commit();
-                        gencall(a->args[0]);
-                        genstack((a->args[1]) * BPW);
-                        genunspillregs();
-                        break;
-        case OP_CALR:   genspillregs();
-                        emitargs(a->left);
-                        commit();
-                        lv.prim = FUNPTR;
-                        lv.sym = a->args[0];
-                        genrval(&lv);
-                        gencalr();
-                        genstack((a->args[1]) * BPW);
-                        genunspillregs();
                         break;
 ```
 
@@ -393,7 +378,7 @@ At the top of `cg.c`, I've created new `genXX()` functions to to
 output the assembly code to the `Outfile` because I found the
 existing ones too constraining.
 
-One function at the end of `cg.c`, `cgregtosec(), I will explain further down.
+One function at the end of `cg.c`, `cgregtosec()`, I will explain further down.
 
 The code to deal with the `switch` jump table assumes that `%rax` will
 hold the value to index the table. We need to fill this in from the
