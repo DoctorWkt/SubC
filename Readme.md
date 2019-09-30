@@ -28,12 +28,13 @@ The topics that I will cover are:
  + [The C Pre-processor](3_Preprocessor.md)
  + [Parsing of Statements](4_Statement_Parsing.md)
  + [The Symbol Table](5_Symbol_Table.md)
- + Parsing of Declarations
+ + [Parsing of Declarations](6_Declarations.md)
  + [Abstract Syntax Trees](7_Abstract_Syntax_Trees.md)
  + [Parsing of Expressions](8_Expression_Parsing.md)
- + General Optimisation
- + General Code Generation
- + The x64 Code Generator
+ + [General Optimisation](9_Optimisation.md)
+ + [General Code Generation](10_Generic_Code_Generation.md)
+ + [The x86-64 Code Generator](11_x86-64_Code_Generation.md)
+ + [Cyclic Register Allocation](12_Register_Allocation.md)
 
 ## Putting It Into Action
 
