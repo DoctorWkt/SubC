@@ -200,7 +200,7 @@ works on the name of the current primary register, `Reg[R]`.
 The original `cgload2()` function loaded values into the secondary register `%rcx`. It now
 works on the name of the current secondary register, `Reg[SR]`.
 
-The `cglXX()` functions which load values into the primary register now work on `Reg[SR]`.
+The `cglXX()` functions which load values into the primary register now work on `Reg[R]`.
 These functions are also where `cgallocreg()` gets called to allocate a new primary
 register. The side effect is to make what was the primary register into the new
 secondary register.
@@ -431,7 +431,7 @@ void cgrestoreregs(int pop) {
 ```
 
 We don't need to spill the registers, just remember which ones we should be using.
-The code in `tree.c` that uses these is the code that deals with the termary operator:
+The code in `tree.c` that uses these is the code that deals with the ternary operator:
 
 ```
 void emitcond(node *a, int ex) {
