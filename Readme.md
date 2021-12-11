@@ -5,7 +5,7 @@ real compiler works. I've done compiler courses which were theoretical, and
 I've written my own [toy compiler](https://github.com/DoctorWkt/h-compiler).
 
 This is my own personal tour through the
-[SubC](http://www.t3x.org/subc/http://www.t3x.org/subc/) C compiler,
+[SubC](http://www.t3x.org/subc/) C compiler,
 written by Nils M Holm. I've done this to help me grok a compiler that
 is small but which is complete enough to be able to recompile itself.
 
